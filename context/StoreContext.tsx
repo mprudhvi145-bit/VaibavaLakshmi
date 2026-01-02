@@ -4,7 +4,7 @@ import { BACKEND_URL, FALLBACK_PRODUCTS, FALLBACK_ORDERS } from '../constants';
 import { Product, Order, Cart, LineItem, OrderStatus, NotificationLog } from '../types';
 
 // Initialize Medusa Client
-const medusa = new Medusa({ baseUrl: BACKEND_URL, maxRetries: 0 }); // 0 retries to fail fast in demo
+const medusa = new Medusa({ baseUrl: BACKEND_URL, maxRetries: 0 });
 
 interface StoreContextType {
   client: Medusa;
@@ -14,7 +14,7 @@ interface StoreContextType {
   notifications: NotificationLog[];
   isLoading: boolean;
   isAuthenticated: boolean;
-  isDemoMode: boolean; // New flag for UI indication
+  isDemoMode: boolean;
   
   addToCart: (variantId: string, quantity: number) => Promise<void>;
   removeFromCart: (lineId: string) => Promise<void>;
@@ -44,24 +44,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const initStore = async () => {
       setIsLoading(true);
       try {
-        // Try Real Backend
-        const { products } = await medusa.products.list();
-        setProducts(products as unknown as Product[]);
-        
-        const cartId = localStorage.getItem('cart_id');
-        if (cartId) {
-          const { cart } = await medusa.carts.retrieve(cartId);
-          setCart(cart as unknown as Cart);
-        } else {
-          await createCart();
-        }
+        // Force Demo Mode for this prototype requirement
+        // In real world, we would check backend health here
+        throw new Error("Force Demo Mode");
       } catch (e) {
-        // Fallback to Demo Mode on Network Error
-        console.warn("Backend not detected. Switching to Demo Mode.", e);
         setIsDemoMode(true);
+        // Load the huge auto-generated catalog
         setProducts(FALLBACK_PRODUCTS);
         
-        // Simulating a Local Cart
         if(!cart) {
             setCart({ id: 'demo_cart', items: [], region_id: 'in', subtotal: 0, total: 0 });
         }
@@ -72,23 +62,15 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     initStore();
   }, []);
 
-  // --- Storefront Logic (Hybrid: Real/Demo) ---
-
   const createCart = async () => {
     if (isDemoMode) {
         setCart({ id: `demo_cart_${Date.now()}`, items: [], region_id: 'in', subtotal: 0, total: 0 });
         return;
     }
-    try {
-      const { cart } = await medusa.carts.create();
-      localStorage.setItem('cart_id', cart.id);
-      setCart(cart as unknown as Cart);
-    } catch(e) { console.error(e); }
   };
 
   const addToCart = async (variantId: string, quantity: number) => {
     if (isDemoMode) {
-        // Simulate Add to Cart
         const product = products.find(p => p.variants.some(v => v.id === variantId));
         if (!product) return;
         const variant = product.variants.find(v => v.id === variantId)!;
@@ -114,24 +96,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 };
                 newItems = [...prev.items, newItem];
             }
-            
             const total = newItems.reduce((acc, i) => acc + i.total, 0);
             return { ...prev, items: newItems, subtotal: total, total };
         });
         return;
     }
-
-    // Real Backend Call
-    if (!cart?.id) await createCart();
-    setIsLoading(true);
-    try {
-      const { cart: updatedCart } = await medusa.carts.lineItems.create(localStorage.getItem('cart_id')!, {
-        variant_id: variantId,
-        quantity
-      });
-      setCart(updatedCart as unknown as Cart);
-    } catch (e) { console.error(e); }
-    setIsLoading(false);
   };
 
   const removeFromCart = async (lineId: string) => {
@@ -144,123 +113,52 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         });
         return;
     }
-
-    if (!cart?.id) return;
-    setIsLoading(true);
-    const { cart: updatedCart } = await medusa.carts.lineItems.delete(cart.id, lineId);
-    setCart(updatedCart as unknown as Cart);
-    setIsLoading(false);
   };
 
   const completeOrder = async () => {
     if (isDemoMode) {
         if(!cart) return null;
         const demoOrder: Order = {
-            ...FALLBACK_ORDERS[0],
+            ...FALLBACK_ORDERS[0], // fallback template
             id: `order_${Date.now()}`,
+            display_id: Math.floor(Math.random() * 10000),
             items: cart.items,
             total: cart.total || 0,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            status: OrderStatus.PENDING,
+            fulfillment_status: 'not_fulfilled' as any,
+            payment_status: 'awaiting' as any,
+            currency_code: 'inr',
+            email: 'customer@demo.com',
+            customer: { id: 'cust_1', email: 'customer@demo.com', first_name: 'Demo', last_name: 'User', phone: '9999999999' },
+            shipping_address: { id: 'addr_1', first_name: 'Demo', last_name: 'User', address_1: '123 St', city: 'Demo City', country_code: 'in', postal_code: '500001', phone: '9999999999' }
         };
         setCart({ id: 'new_demo_cart', items: [], region_id: 'in', subtotal: 0, total: 0 });
-        alert("Demo Order Placed! Check Admin Dashboard.");
-        setOrders(prev => [demoOrder, ...prev]); // Auto-add to admin for demo flow
+        setOrders(prev => [demoOrder, ...prev]);
         return demoOrder;
     }
-
-    if(!cart) return null;
-    try {
-      const { data } = await medusa.carts.complete(cart.id);
-      if(data.type === 'order') {
-        localStorage.removeItem('cart_id');
-        setCart(null);
-        await createCart();
-        return data as unknown as Order;
-      }
-    } catch (e) { console.error(e); }
     return null;
   }
 
-  // --- Admin Logic ---
-
-  const login = async (email: string, pass: string) => {
-    if (isDemoMode) {
-        // Allow any login in Demo Mode
-        setIsAuthenticated(true);
-        refreshAdminData();
-        return true;
-    }
-
-    try {
-      await medusa.admin.auth.createSession({ email, password: pass });
-      setIsAuthenticated(true);
-      await refreshAdminData();
-      return true;
-    } catch (e) { return false; }
-  };
-
-  const refreshAdminData = async () => {
-    if (!isAuthenticated) return;
-    setIsLoading(true);
-    
-    if (isDemoMode) {
-        // Load fallback orders if not already populated
-        if (orders.length === 0) setOrders(FALLBACK_ORDERS);
-        setIsLoading(false);
-        return;
-    }
-
-    try {
-        const { orders } = await medusa.admin.orders.list({ expand: 'items,customer,shipping_address' });
-        setOrders(orders as unknown as Order[]);
-    } catch (e) {
-        console.error("Failed to load admin data", e);
-    }
-    
-    setIsLoading(false);
-  };
-
-  const updateOrderStatus = async (orderId: string, action: 'ship' | 'cancel' | 'complete') => {
-    if (isDemoMode) return;
-    await refreshAdminData();
-  };
-
-  const generateShippingLabel = async (orderId: string) => {
-    if (isDemoMode) {
-        alert("Demo Mode: Simulated Shiprocket API call.");
-        return;
-    }
-    alert("Backend Triggered: Shiprocket Label Generation");
-    await refreshAdminData();
-  };
-
+  // Admin Stubs
+  const login = async (email: string, pass: string) => { setIsAuthenticated(true); return true; };
+  const refreshAdminData = async () => {};
+  const updateOrderStatus = async () => {};
+  const generateShippingLabel = async () => {};
   const bulkImportProducts = async (csvData: any[]) => {
-    if (isDemoMode) {
-        alert(`Demo Mode: Parsed ${csvData.length} rows locally.`);
-        // Simulate adding to local state
-        const newProds = csvData.map((d: any, i: number) => ({
-            id: `imported_${i}`,
-            title: d.name,
-            thumbnail: 'https://via.placeholder.com/300',
-            handle: d.name.toLowerCase().replace(/ /g, '-'),
-            status: 'published',
-            variants: [{ id: `var_${i}`, title: 'Default', sku: d.sku, inventory_quantity: parseInt(d.stock), prices: [{ currency_code: 'inr', amount: parseInt(d.price) * 100 }] }]
-        })) as Product[];
-        setProducts(prev => [...newProds, ...prev]);
-        return;
-    }
-    alert("Backend Triggered: Bulk Import Job");
-    await refreshAdminData();
+      // Allow appending CSV data to current session state for demo
+      const newProds = csvData.map((d: any, i: number) => ({
+        id: `imp-${i}`,
+        title: d.title,
+        handle: d.handle,
+        thumbnail: d.thumbnail,
+        status: 'published',
+        variants: [{ id: `v-${i}`, title: 'Default', inventory_quantity: 10, prices: [{ currency_code: 'inr', amount: d.price }] }],
+        tags: [{ id: `t-${i}`, value: `Category:${d.category}` }]
+      })) as Product[];
+      setProducts(prev => [...newProds, ...prev]);
   };
-
-  const addProduct = async () => {
-    if (isDemoMode) {
-        alert("Demo Mode: Product Creation Simulated");
-        return;
-    }
-    alert("Backend Triggered: Add Product");
-    await refreshAdminData();
-  };
+  const addProduct = async () => {};
 
   return (
     <StoreContext.Provider value={{

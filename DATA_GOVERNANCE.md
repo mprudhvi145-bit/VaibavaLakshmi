@@ -1,57 +1,30 @@
-# Product Data Governance Strategy
+# Data Governance & Taxonomy Rules
 
-## 1. Attribute Dictionary (Global)
-These attributes are mapped to **Tags** in Medusa (`Key:Value`).
+## 1. Category Hierarchy (Strict)
 
-| Attribute Key | Type | Values (Examples) |
+Operators must classify products into one of these **Level 3** slugs.
+
+| Level 1 | Level 2 | Level 3 (Use this in CSV) |
 | :--- | :--- | :--- |
-| **Category** | Filter | `Sarees`, `Lehengas`, `Men`, `Kids` |
-| **Fabric** | Filter | `Silk`, `Georgette`, `Cotton`, `Organza` |
-| **Occasion** | Filter | `Wedding`, `Party`, `Festive`, `Casual` |
-| **Color** | Filter | `Red`, `Blue`, `Gold`, `Pastel` |
-| **Work Type** | Filter | `Zari`, `Embroidered`, `Stone`, `Plain` |
+| **Women** | Sarees | `kanchipuram-silk`, `banarasi`, `soft-silk`, `designer-sarees` |
+| | Ethnic Wear | `lehengas`, `salwar-suits`, `kurtis` |
+| | Accessories | `jewellery`, `dupattas` |
+| **Men** | Ethnic Wear | `kurtas`, `kurta-sets`, `sherwanis`, `dhoti-sets` |
+| | Festive | `men-festive` |
+| **Kids** | Boys | `boys-ethnic` |
+| | Girls | `girls-ethnic` |
+| **Wedding** | Curated | `the-bride`, `the-groom`, `muhurtham-silks` |
 
-## 2. Category-Specific Attributes
-These can be Tags (if filtering is needed) or Metadata (if only for display).
+## 2. Product Attributes (Filters)
 
-### Sarees
-- **Border**: `Big Border`, `No Border` (Tag)
-- **Blouse**: `Contrast`, `Running` (Tag)
-- **Saree Length**: `6.3m` (Metadata)
-- **Blouse Included**: `Yes/No` (Metadata)
+To ensure filters work on the storefront, map these CSV columns:
 
-### Lehengas
-- **Type**: `A-Line`, `Flared` (Tag)
-- **Dupatta**: `Single`, `Double` (Metadata)
+- **Fabric:** Silk, Cotton, Georgette, Chiffon, Velvet, Organza.
+- **Occasion:** Wedding, Party, Festive, Casual.
+- **Color:** Red, Pink, Blue, Green, Yellow, Black, White, Gold.
+- **Work Type:** Zari Woven, Embroidered, Printed.
 
-### Men
-- **Fit**: `Regular`, `Slim` (Tag)
-- **Sleeve**: `Full`, `Half` (Tag)
-
-## 3. Medusa Data Model Mapping
-
-| Concept | Medusa Entity | Implementation Detail |
-| :--- | :--- | :--- |
-| **Product Name** | `title` | Main display title. |
-| **SKU / ID** | `handle` | URL Slug (e.g., `red-kanchipuram-saree`). |
-| **Filters** | `tags` | Stored as `Key:Value` strings. E.g., `Fabric:Silk`. |
-| **Details** | `metadata` | JSON object for product specs (Care, Dimensions). |
-| **Size** | `variants` | Product Options used strictly for Size (S, M, L). |
-| **Stock** | `inventory` | Managed at Variant level. |
-
-## 4. Operator Validation Rules
-When uploading via CSV, the system logic in `Products.tsx`:
-1.  **Strictly matches** columns to the Attribute Dictionary.
-2.  **Auto-prefixes** known columns (Fabric -> `Fabric:Value`).
-3.  **Moves** unknown/detail columns to `metadata`.
-
-**Mandatory Fields:**
-- Title
-- Price
-- Stock
-- Category (Must match one of `Sarees`, `Lehengas`, `Men`)
-
-## 5. SEO Strategy
-- **URL Pattern:** `/catalog?cat=women-sarees`
-- **Filtered URL:** `/catalog?cat=women-sarees&fabric=Silk`
-- **Breadcrumbs:** `Home > Women > Sarees > Kanchipuram` (Generated from Category Hierarchy).
+## 3. SEO Standards
+- **Product Title:** `{Material} {Work Type} {Category} - {Color}`
+  - *Ex:* "Pure Silk Zari Woven Kanchipuram Saree - Red"
+- **URL Handles:** Auto-generated from title. valid: `pure-silk-zari-saree-red`.

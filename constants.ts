@@ -1,16 +1,25 @@
-import { Product, Order, OrderStatus, PaymentStatus, FulfillmentStatus } from './types';
+import { Product, Order } from './types';
 
-// --- CATEGORY TAXONOMY ---
-export const CATEGORY_HIERARCHY = [
+// --- 1. STRICT CATEGORY TAXONOMY (AJIO-STYLE) ---
+
+export interface CategoryNode {
+  id: string;
+  label: string;
+  slug: string; 
+  highlight?: boolean;
+  children?: CategoryNode[];
+}
+
+export const CATEGORY_HIERARCHY: CategoryNode[] = [
   {
     id: 'women',
-    label: 'WOMEN',
+    label: 'Women',
     slug: 'women',
     children: [
       {
         id: 'sarees',
         label: 'Sarees',
-        slug: 'women-sarees',
+        slug: 'sarees',
         children: [
           { id: 'kanchipuram', label: 'Kanchipuram Silk', slug: 'kanchipuram-silk' },
           { id: 'banarasi', label: 'Banarasi', slug: 'banarasi' },
@@ -19,147 +28,209 @@ export const CATEGORY_HIERARCHY = [
         ]
       },
       {
-        id: 'ethnic',
+        id: 'women-ethnic',
         label: 'Ethnic Wear',
         slug: 'women-ethnic',
         children: [
           { id: 'lehengas', label: 'Lehengas', slug: 'lehengas' },
-          { id: 'gowns', label: 'Indo-Western Gowns', slug: 'gowns' },
           { id: 'salwar', label: 'Salwar Suits', slug: 'salwar-suits' },
           { id: 'kurtis', label: 'Kurtis & Tunics', slug: 'kurtis' }
+        ]
+      },
+      {
+        id: 'women-acc',
+        label: 'Accessories',
+        slug: 'women-accessories',
+        children: [
+           { id: 'jewellery', label: 'Jewellery', slug: 'jewellery' },
+           { id: 'dupatta', label: 'Dupattas', slug: 'dupattas' }
         ]
       }
     ]
   },
   {
     id: 'men',
-    label: 'MEN',
+    label: 'Men',
     slug: 'men',
     children: [
       {
-        id: 'wedding-men',
-        label: 'Wedding Collection',
-        slug: 'men-wedding',
+        id: 'men-ethnic',
+        label: 'Ethnic Wear',
+        slug: 'men-ethnic',
         children: [
-          { id: 'sherwani', label: 'Sherwanis', slug: 'sherwanis' },
-          { id: 'bandhgala', label: 'Bandhgalas', slug: 'bandhgalas' }
+          { id: 'kurtas', label: 'Kurtas', slug: 'kurtas' },
+          { id: 'kurta-sets', label: 'Kurta Sets', slug: 'kurta-sets' },
+          { id: 'sherwanis', label: 'Sherwanis', slug: 'sherwanis' },
+          { id: 'dhoti', label: 'Dhoti Sets', slug: 'dhoti-sets' }
         ]
       },
       {
-        id: 'festive-men',
+        id: 'men-festive',
         label: 'Festive Wear',
         slug: 'men-festive',
+        children: [] // Leaf node acting as category
+      },
+      {
+        id: 'men-acc',
+        label: 'Accessories',
+        slug: 'men-accessories',
+        children: []
+      }
+    ]
+  },
+  {
+    id: 'kids',
+    label: 'Kids',
+    slug: 'kids',
+    children: [
+      {
+        id: 'boys',
+        label: 'Boys',
+        slug: 'kids-boys',
         children: [
-          { id: 'kurta-sets', label: 'Kurta Sets', slug: 'kurta-sets' },
-          { id: 'waistcoats', label: 'Nehru Jackets', slug: 'nehru-jackets' },
-          { id: 'dhoti', label: 'Dhoti Sets', slug: 'dhoti-sets' }
+          { id: 'boys-ethnic', label: 'Ethnic Wear', slug: 'boys-ethnic' }
+        ]
+      },
+      {
+        id: 'girls',
+        label: 'Girls',
+        slug: 'kids-girls',
+        children: [
+          { id: 'girls-ethnic', label: 'Ethnic Wear', slug: 'girls-ethnic' }
         ]
       }
     ]
   },
   {
     id: 'wedding',
-    label: 'WEDDING EDIT',
-    slug: 'wedding-edit',
+    label: 'Wedding',
+    slug: 'wedding',
     highlight: true,
     children: [
-      {
-        id: 'bride',
-        label: 'The Bride',
-        slug: 'bridal-collection',
-        children: [
-          { id: 'muhurtham', label: 'Muhurtham Silks', slug: 'muhurtham' },
-          { id: 'reception', label: 'Reception Lehengas', slug: 'reception-lehengas' }
-        ]
-      },
-      {
-        id: 'groom',
-        label: 'The Groom',
-        slug: 'groom-collection',
-        children: [
-          { id: 'wedding-sherwani', label: 'Royal Sherwanis', slug: 'wedding-sherwanis' },
-          { id: 'turban', label: 'Safas & Turbans', slug: 'safas' }
-        ]
-      }
+      { id: 'bride', label: 'The Bride', slug: 'the-bride', children: [] },
+      { id: 'groom', label: 'The Groom', slug: 'the-groom', children: [] },
+      { id: 'muhurtham', label: 'Muhurtham Silks', slug: 'muhurtham-silks', children: [] }
     ]
   }
 ];
 
-// --- ATTRIBUTE & FILTER GOVERNANCE ---
+// --- 2. FILTERS & ATTRIBUTES ---
+
 export interface FilterConfig {
   key: string;
   label: string;
-  type: 'multi' | 'range' | 'boolean';
+  type: 'multi' | 'range';
   options?: string[];
-  mandatory?: boolean;
 }
 
 export const ATTRIBUTE_DICTIONARY: Record<string, FilterConfig[]> = {
-  // Global attributes (All Categories)
   global: [
-    { 
-      key: 'Fabric', label: 'Fabric', type: 'multi', mandatory: true,
-      options: ['Pure Silk', 'Georgette', 'Chiffon', 'Cotton', 'Organza', 'Crepe', 'Art Silk', 'Raw Silk', 'Velvet'] 
-    },
-    { 
-      key: 'Occasion', label: 'Occasion', type: 'multi', mandatory: true,
-      options: ['Bridal', 'Party', 'Festive', 'Casual', 'Office', 'Reception', 'Engagement'] 
-    },
-    { 
-      key: 'Color', label: 'Color', type: 'multi', mandatory: true,
-      options: ['Red', 'Pink', 'Gold', 'Blue', 'Green', 'Black', 'Pastel', 'Maroon', 'Mustard', 'Purple', 'Orange'] 
-    },
-    { 
-      key: 'Work Type', label: 'Work Type', type: 'multi', 
-      options: ['Zari Woven', 'Embroidered', 'Hand Painted', 'Stone Work', 'Mirror Work', 'Sequins', 'Plain'] 
-    }
+    { key: 'Price', label: 'Price Range', type: 'range', options: ['Under ₹2,000', '₹2,000 - ₹5,000', '₹5,000 - ₹15,000', 'Above ₹15,000'] },
+    { key: 'Color', label: 'Color', type: 'multi', options: ['Red', 'Pink', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Gold', 'Silver'] },
+    { key: 'Occasion', label: 'Occasion', type: 'multi', options: ['Casual', 'Festive', 'Party', 'Wedding'] }
   ],
-  // Category Specific Facets (Level 2)
-  'women-sarees': [
-    { key: 'Border', label: 'Border Type', type: 'multi', options: ['Big Border', 'Small Border', 'No Border', 'Temple Border', 'Zari Border'] },
-    { key: 'Blouse', label: 'Blouse Type', type: 'multi', options: ['Contrast', 'Running', 'Brocade', 'Designer'] }
+  'sarees': [
+    { key: 'Fabric', label: 'Fabric', type: 'multi', options: ['Silk', 'Georgette', 'Cotton', 'Organza', 'Chiffon'] },
+    { key: 'Work Type', label: 'Work Type', type: 'multi', options: ['Zari Woven', 'Embroidered', 'Printed'] }
   ],
-  'lehengas': [
-    { key: 'Lehenga Type', label: 'Lehenga Style', type: 'multi', options: ['A-Line', 'Flared', 'Fish Cut', 'Panelled', 'Jacket Style'] },
-    { key: 'Dupatta', label: 'Dupatta Type', type: 'multi', options: ['Single', 'Double', 'Cape'] }
-  ],
-  'men-wedding': [
-    { key: 'Fit', label: 'Fit', type: 'multi', options: ['Regular', 'Slim', 'Royal', 'Comfort'] },
-    { key: 'Sleeve', label: 'Sleeve', type: 'multi', options: ['Full Sleeve', 'Half Sleeve'] },
-    { key: 'Set Type', label: 'Set Type', type: 'multi', options: ['Kurta Only', 'Kurta Pajama', '3 Piece', 'Sherwani Set'] }
+  'kids': [
+    { key: 'Age Group', label: 'Age Group', type: 'multi', options: ['2-4 Years', '4-6 Years', '6-8 Years', '8-12 Years', 'Teen'] }
   ]
 };
 
-// --- FESTIVAL COLLECTION ENGINE ---
-// Rules to auto-populate collections based on tags
-export const FESTIVAL_COLLECTIONS = {
-  'wedding-bride': {
-    tags: ['Occasion:Bridal', 'Occasion:Reception', 'Fabric:Pure Silk'],
-    title: 'The Royal Bride',
-    description: 'Handwoven masterpieces for your special day.'
-  },
-  'diwali-edit': {
-    tags: ['Occasion:Festive', 'Work Type:Zari Woven', 'Work Type:Sequins'],
-    title: 'Festival of Lights',
-    description: 'Shine bright with our festive curation.'
-  },
-  'muhurtham': {
-    tags: ['Occasion:Bridal', 'Color:Red', 'Color:Gold', 'Color:Yellow'],
-    title: 'Muhurtham Edit',
-    description: 'Auspicious colors for the sacred hour.'
+export const SORT_OPTIONS = [
+  { label: 'Relevance', value: 'relevance' },
+  { label: 'New Arrivals', value: 'newest' },
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' }
+];
+
+// --- 3. MOCK DATA GENERATOR ---
+// Generates 10 realistic products for every leaf category
+
+const COLORS = ['Red', 'Pink', 'Royal Blue', 'Emerald Green', 'Mustard Yellow', 'Deep Maroon', 'Gold', 'Ivory', 'Pastel Peach', 'Midnight Black'];
+const ADJECTIVES = ['Handwoven', 'Embroidered', 'Classic', 'Royal', 'Contemporary', 'Festive', 'Designer', 'Traditional', 'Elegant', 'Exclusive'];
+
+// Helper to generate products per category logic
+const generateProductsForCategory = (catSlug: string, count: number): Product[] => {
+  const products: Product[] = [];
+  
+  // Logic to determine price range and keywords based on slug
+  let basePrice = 2000;
+  let keyword = 'fashion';
+  let fabric = 'Cotton';
+  let type = 'Wear';
+  
+  if (catSlug.includes('silk') || catSlug.includes('kanchipuram') || catSlug.includes('banarasi')) {
+      basePrice = 12000; keyword = 'saree'; fabric = 'Pure Silk'; type = 'Saree';
+  } else if (catSlug.includes('sherwani') || catSlug.includes('groom')) {
+      basePrice = 15000; keyword = 'men ethnic'; fabric = 'Velvet'; type = 'Sherwani';
+  } else if (catSlug.includes('lehenga') || catSlug.includes('bride')) {
+      basePrice = 18000; keyword = 'lehenga'; fabric = 'Raw Silk'; type = 'Lehenga';
+  } else if (catSlug.includes('kurta')) {
+      basePrice = 1500; keyword = 'kurta'; fabric = 'Linen'; type = 'Kurta';
+  } else if (catSlug.includes('jewellery')) {
+      basePrice = 5000; keyword = 'jewellery'; fabric = 'Gold Plated'; type = 'Set';
   }
+
+  for (let i = 0; i < count; i++) {
+    const color = COLORS[i % COLORS.length];
+    const adj = ADJECTIVES[i % ADJECTIVES.length];
+    const price = Math.floor(basePrice + (Math.random() * basePrice * 0.5));
+    
+    products.push({
+      id: `${catSlug}-${i}`,
+      title: `${adj} ${color} ${fabric} ${type}`,
+      handle: `${adj}-${color}-${type}`.toLowerCase().replace(/ /g, '-'),
+      description: `Experience the luxury of ${fabric} with this ${adj.toLowerCase()} ${type}. Perfect for weddings and festive occasions. Includes intricate detailing in ${color}.`,
+      thumbnail: `https://source.unsplash.com/random/500x700/?${keyword},${color}`,
+      status: 'published',
+      tags: [
+        { id: `t-cat-${i}`, value: `Category:${catSlug}` },
+        { id: `t-col-${i}`, value: `Color:${color}` },
+        { id: `t-fab-${i}`, value: `Fabric:${fabric}` },
+        { id: `t-occ-${i}`, value: `Occasion:${price > 10000 ? 'Wedding' : 'Festive'}` }
+      ],
+      metadata: { 
+          'Badge': i === 0 ? 'Best Seller' : (i === 1 ? 'New Arrival' : ''),
+          'Dispatch Time': '24 Hours',
+          'Return Eligible': 'Yes'
+      },
+      variants: [{
+        id: `v-${catSlug}-${i}`,
+        title: 'Default',
+        sku: `SKU-${catSlug.toUpperCase()}-${i}`,
+        inventory_quantity: 10,
+        prices: [{ currency_code: 'inr', amount: price * 100 }]
+      }]
+    });
+  }
+  return products;
 };
 
-// --- OPERATOR CSV TEMPLATES (EXPANDED) ---
-export const CSV_TEMPLATES = {
-  master: `Handle,Title,Description,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Care Instructions,Dispatch Time,Return Eligible`,
-  saree: `Handle,Title,Description,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Care Instructions,Dispatch Time,Return Eligible,Saree Length,Blouse Included,Border,Blouse`,
-  lehenga: `Handle,Title,Description,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Care Instructions,Dispatch Time,Return Eligible,Lehenga Type,Dupatta,Waist Range`,
-  mens: `Handle,Title,Description,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Care Instructions,Dispatch Time,Return Eligible,Fit,Sleeve,Set Type`
+// --- 4. GENERATE MASTER CATALOG ---
+let GENERATED_CATALOG: Product[] = [];
+
+// Recursive function to populate catalog based on hierarchy
+const populateCatalog = (nodes: CategoryNode[]) => {
+  nodes.forEach(node => {
+    // If it has children, recurse. If it's a leaf node (or explicit like men-festive), generate items.
+    if (node.children && node.children.length > 0) {
+      populateCatalog(node.children);
+    } 
+    // Always generate products for the slug itself to ensure /category pages work
+    const newItems = generateProductsForCategory(node.slug, 10);
+    GENERATED_CATALOG = [...GENERATED_CATALOG, ...newItems];
+  });
 };
+
+populateCatalog(CATEGORY_HIERARCHY);
+
+export const FALLBACK_PRODUCTS = GENERATED_CATALOG;
+export const FALLBACK_ORDERS: Order[] = [];
 
 export const BRAND_ASSETS = {
-  name: "Vaibava Lakshmi Shopping Mall",
+  name: "Vaibava Lakshmi",
   email: "support@vaibavalakshmi.com",
   phone: "+91 98765 43210",
   address: "Hanamkonda, Warangal, Telangana 506001",
@@ -167,77 +238,8 @@ export const BRAND_ASSETS = {
     <path d="M40 30C40 45 30 55 20 55C10 55 0 45 0 30C0 15 10 5 20 5C30 5 40 15 40 30Z" fill="#BE123C" opacity="0.2"/>
     <path d="M20 10C25 10 30 15 30 30C30 45 25 50 20 50C15 50 10 45 10 30C10 15 15 10 20 10Z" fill="#BE123C"/>
     <text x="50" y="40" font-family="Playfair Display" font-weight="bold" font-size="28" fill="#881337">Vaibava <tspan fill="#D97706">Lakshmi</tspan></text>
-  </svg>`,
-  map_embed: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3795.123456789!2d79.5!3d18.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2sVaibavaLakshmi+Shopping+Mall!5e0!3m2!1sen!2sin!4v1234567890"
+  </svg>`
 };
 
 export const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000";
-
-// --- FALLBACK DATA ---
-export const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: 'prod_01',
-    title: 'Kanchipuram Silk Saree - Red & Gold',
-    handle: 'kanchipuram-silk-saree',
-    description: 'Authentic Kanchipuram silk saree with pure zari border.',
-    thumbnail: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=500&auto=format&fit=crop',
-    status: 'published',
-    tags: [
-        { id: 't1', value: 'Category:women-sarees' }, 
-        { id: 't2', value: 'Fabric:Pure Silk' }, 
-        { id: 't3', value: 'Occasion:Wedding' },
-        { id: 't4', value: 'Color:Red' },
-        { id: 't5', value: 'Work Type:Zari Woven' },
-        { id: 't6', value: 'Border:Big Border' }
-    ],
-    metadata: {
-        "Care Instructions": "Dry Clean Only",
-        "Blouse Included": "Yes",
-        "Saree Length": "6.3m",
-        "Dispatch Time": "24 Hours",
-        "Return Eligible": "No"
-    },
-    variants: [
-      {
-        id: 'var_01',
-        title: 'Free Size',
-        sku: 'VL-KS-001',
-        inventory_quantity: 15,
-        prices: [{ currency_code: 'inr', amount: 1250000 }]
-      }
-    ]
-  },
-  {
-    id: 'prod_02',
-    title: 'Banarasi Georgette Saree - Royal Blue',
-    handle: 'banarasi-georgette',
-    description: 'Lightweight Banarasi georgette with intricate floral motifs.',
-    thumbnail: 'https://images.unsplash.com/photo-1583391733958-d775f977d0b9?q=80&w=500&auto=format&fit=crop',
-    status: 'published',
-    tags: [
-        { id: 't6', value: 'Category:women-sarees' }, 
-        { id: 't7', value: 'Fabric:Georgette' }, 
-        { id: 't8', value: 'Occasion:Party' },
-        { id: 't9', value: 'Color:Blue' },
-        { id: 't10', value: 'Work Type:Embroidered' },
-        { id: 't11', value: 'Blouse:Running' }
-    ],
-    metadata: {
-        "Care Instructions": "Dry Clean Only",
-        "Blouse Included": "Yes",
-        "Dispatch Time": "2-3 Days",
-        "Return Eligible": "Yes"
-    },
-    variants: [
-      {
-        id: 'var_02',
-        title: 'Free Size',
-        sku: 'VL-BG-002',
-        inventory_quantity: 8,
-        prices: [{ currency_code: 'inr', amount: 890000 }]
-      }
-    ]
-  }
-];
-
-export const FALLBACK_ORDERS: Order[] = [];
+export const CSV_TEMPLATES = { master: "" }; // Placeholder

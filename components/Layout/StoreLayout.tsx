@@ -22,17 +22,17 @@ const StoreLayout: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-brand-ivory text-brand-text font-sans">
       
       {/* Announcement Bar */}
-      <div className="bg-brand-primary text-brand-gold text-[10px] md:text-xs py-2 text-center tracking-widest uppercase font-medium">
+      <div className="bg-brand-primary text-brand-gold text-[10px] md:text-xs py-2 text-center tracking-widest uppercase font-medium z-50 relative">
         Free Shipping on all domestic orders above ₹10,000 | Worldwide Shipping Available
       </div>
 
       {/* Luxury Header */}
-      <header className="sticky top-0 z-50 bg-brand-ivory/95 backdrop-blur-md border-b border-brand-gold/20 transition-all duration-300">
+      <header className="sticky top-0 z-40 bg-brand-ivory/95 backdrop-blur-md border-b border-brand-gold/20 transition-all duration-300">
         <div className="container mx-auto px-4 md:px-8">
           <div className="flex justify-between items-center h-20">
             
             {/* Desktop Left Nav - Mega Menu Trigger */}
-            <nav className="hidden md:flex space-x-8 items-center h-full">
+            <nav className="hidden lg:flex space-x-8 items-center h-full">
               {CATEGORY_HIERARCHY.map((category) => (
                 <div 
                   key={category.id}
@@ -50,22 +50,33 @@ const StoreLayout: React.FC = () => {
                   {/* Mega Menu Dropdown */}
                   <div className={`absolute top-20 left-0 w-full bg-white shadow-xl border-t border-brand-gold/20 transition-all duration-300 transform origin-top z-50 ${activeMegaMenu === category.id ? 'opacity-100 scale-y-100 visible' : 'opacity-0 scale-y-0 invisible'}`}>
                     <div className="container mx-auto px-12 py-8 grid grid-cols-4 gap-8">
-                      {category.children.map((sub) => (
-                        <div key={sub.id} className="space-y-4">
-                           <Link to={`/catalog?cat=${sub.slug}`} className="block font-serif text-brand-primary text-lg font-bold hover:text-brand-gold">
-                             {sub.label}
-                           </Link>
-                           <ul className="space-y-2">
-                             {sub.children.map((child) => (
-                               <li key={child.id}>
-                                 <Link to={`/catalog?cat=${child.slug}`} className="text-sm text-slate-600 hover:text-brand-primary hover:translate-x-1 transition-transform inline-block">
-                                   {child.label}
-                                 </Link>
-                               </li>
-                             ))}
-                           </ul>
-                        </div>
-                      ))}
+                      {category.children && category.children.length > 0 ? (
+                        category.children.map((sub) => (
+                          <div key={sub.id} className="space-y-4">
+                             <Link to={`/catalog?cat=${sub.slug}`} className="block font-serif text-brand-primary text-lg font-bold hover:text-brand-gold border-b border-slate-100 pb-2">
+                               {sub.label}
+                             </Link>
+                             <ul className="space-y-2">
+                               {sub.children && sub.children.length > 0 ? (
+                                 sub.children.map((child) => (
+                                   <li key={child.id}>
+                                     <Link to={`/catalog?cat=${child.slug}`} className="text-sm text-slate-600 hover:text-brand-primary hover:translate-x-1 transition-transform inline-block">
+                                       {child.label}
+                                     </Link>
+                                   </li>
+                                 ))
+                               ) : (
+                                 <li>
+                                   <Link to={`/catalog?cat=${sub.slug}`} className="text-sm text-slate-500 italic">View Collection</Link>
+                                 </li>
+                               )}
+                             </ul>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-3 text-slate-500 italic">Explore our {category.label} collection.</div>
+                      )}
+
                       {/* Promo Image in Mega Menu */}
                       <div className="col-span-1 bg-brand-gray aspect-[3/4] rounded-lg overflow-hidden relative group">
                           <img 
@@ -74,7 +85,7 @@ const StoreLayout: React.FC = () => {
                             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" 
                           />
                           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                              <span className="text-white font-serif text-xl border-b border-white pb-1">New Arrivals</span>
+                              <span className="text-white font-serif text-xl border-b border-white pb-1 tracking-widest uppercase">New In</span>
                           </div>
                       </div>
                     </div>
@@ -84,7 +95,7 @@ const StoreLayout: React.FC = () => {
             </nav>
 
             {/* Mobile Menu Toggle */}
-            <button className="md:hidden text-brand-text" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <button className="lg:hidden text-brand-text" onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
 
@@ -112,7 +123,7 @@ const StoreLayout: React.FC = () => {
 
         {/* Mobile Navigation Drawer (Accordion Style) */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full h-[calc(100vh-80px)] bg-brand-ivory overflow-y-auto z-50 animate-fade-in pb-20">
+          <div className="lg:hidden absolute top-full left-0 w-full h-[calc(100vh-80px)] bg-brand-ivory overflow-y-auto z-50 animate-fade-in pb-20 border-t border-slate-200">
              <div className="p-4 space-y-2">
                {CATEGORY_HIERARCHY.map((cat) => (
                  <div key={cat.id} className="border-b border-brand-gold/10">
@@ -127,27 +138,31 @@ const StoreLayout: React.FC = () => {
                    {/* Level 2 & 3 Mobile */}
                    <div className={`overflow-hidden transition-all duration-300 ${mobileExpanded === cat.id ? 'max-h-[1000px] opacity-100 mb-4' : 'max-h-0 opacity-0'}`}>
                       <div className="pl-4 space-y-4">
-                        {cat.children.map((sub) => (
+                        {cat.children && cat.children.map((sub) => (
                           <div key={sub.id}>
                              <Link 
                                to={`/catalog?cat=${sub.slug}`} 
                                onClick={() => setIsMenuOpen(false)}
-                               className="block font-bold text-sm text-slate-800 mb-2 uppercase tracking-wide"
+                               className="block font-bold text-sm text-slate-800 mb-2 uppercase tracking-wide flex items-center justify-between"
                              >
                                {sub.label}
+                               <ChevronRight size={14} className="text-slate-400"/>
                              </Link>
-                             <div className="pl-2 border-l-2 border-brand-gold/20 space-y-2">
-                               {sub.children.map((child) => (
-                                 <Link 
-                                   key={child.id}
-                                   to={`/catalog?cat=${child.slug}`}
-                                   onClick={() => setIsMenuOpen(false)}
-                                   className="block text-sm text-slate-600 py-1"
-                                 >
-                                   {child.label}
-                                 </Link>
-                               ))}
-                             </div>
+                             
+                             {sub.children && sub.children.length > 0 && (
+                               <div className="pl-4 border-l-2 border-brand-gold/20 space-y-2 mb-3">
+                                 {sub.children.map((child) => (
+                                   <Link 
+                                     key={child.id}
+                                     to={`/catalog?cat=${child.slug}`}
+                                     onClick={() => setIsMenuOpen(false)}
+                                     className="block text-sm text-slate-600 py-1 hover:text-brand-primary"
+                                   >
+                                     {child.label}
+                                   </Link>
+                                 ))}
+                               </div>
+                             )}
                           </div>
                         ))}
                       </div>
@@ -183,10 +198,10 @@ const StoreLayout: React.FC = () => {
           <div>
             <h4 className="text-sm font-bold uppercase tracking-widest text-brand-gold mb-6">Collections</h4>
             <ul className="space-y-3 text-sm font-light opacity-80">
-              <li><Link to="/catalog" className="hover:text-brand-gold transition-colors">Bridal Kanjivaram</Link></li>
-              <li><Link to="/catalog" className="hover:text-brand-gold transition-colors">Banarasi Georgette</Link></li>
-              <li><Link to="/catalog" className="hover:text-brand-gold transition-colors">Designer Lehengas</Link></li>
-              <li><Link to="/catalog" className="hover:text-brand-gold transition-colors">Royal Sherwanis</Link></li>
+              <li><Link to="/catalog?cat=kanchipuram-silk" className="hover:text-brand-gold transition-colors">Bridal Kanjivaram</Link></li>
+              <li><Link to="/catalog?cat=banarasi" className="hover:text-brand-gold transition-colors">Banarasi Georgette</Link></li>
+              <li><Link to="/catalog?cat=lehengas" className="hover:text-brand-gold transition-colors">Designer Lehengas</Link></li>
+              <li><Link to="/catalog?cat=sherwanis" className="hover:text-brand-gold transition-colors">Royal Sherwanis</Link></li>
             </ul>
           </div>
 
@@ -204,13 +219,6 @@ const StoreLayout: React.FC = () => {
              <h4 className="text-sm font-bold uppercase tracking-widest text-brand-gold mb-6">Connect</h4>
              <p className="text-sm opacity-70 mb-2">{BRAND_ASSETS.address}</p>
              <p className="text-sm opacity-70 mb-4">{BRAND_ASSETS.phone}</p>
-             <div className="flex space-x-4 mt-4">
-               {['Instagram', 'Facebook', 'Pinterest'].map(social => (
-                 <a key={social} href="#" className="w-8 h-8 rounded-full border border-brand-gold/50 flex items-center justify-center text-brand-gold hover:bg-brand-gold hover:text-brand-text transition-colors text-xs">
-                    {social[0]}
-                 </a>
-               ))}
-             </div>
           </div>
         </div>
         <div className="text-center text-[10px] uppercase tracking-widest opacity-40 mt-16">
@@ -219,7 +227,7 @@ const StoreLayout: React.FC = () => {
       </footer>
 
       {/* Mobile Bottom Navigation (Sticky) */}
-      <div className="md:hidden fixed bottom-0 left-0 w-full bg-brand-ivory border-t border-brand-gold/20 shadow-2xl z-50 flex justify-around py-3 pb-safe">
+      <div className="md:hidden fixed bottom-0 left-0 w-full bg-brand-ivory border-t border-brand-gold/20 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] z-50 flex justify-around py-3 pb-safe">
         <Link to="/" className={`flex flex-col items-center space-y-1 ${location.pathname === '/' ? 'text-brand-primary' : 'text-slate-400'}`}>
           <Home size={20} strokeWidth={1.5} />
           <span className="text-[10px] uppercase tracking-wide">Home</span>
@@ -231,7 +239,7 @@ const StoreLayout: React.FC = () => {
         <Link to="/cart" className={`flex flex-col items-center space-y-1 ${location.pathname === '/cart' ? 'text-brand-primary' : 'text-slate-400'} relative`}>
           <ShoppingBag size={20} strokeWidth={1.5} />
           {cartCount > 0 && (
-            <span className="absolute top-0 right-2 w-2 h-2 bg-brand-primary rounded-full"></span>
+            <span className="absolute top-0 right-2 w-2 h-2 bg-brand-primary rounded-full animate-bounce"></span>
           )}
           <span className="text-[10px] uppercase tracking-wide">Bag</span>
         </Link>

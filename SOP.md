@@ -1,52 +1,55 @@
-# Operator SOP (Standard Operating Procedure)
+# One-Person Operator SOP
 
-**Role:** Fulfillment Operator  
-**Tools:** Medusa Admin Dashboard, Label Printer, Barcode Scanner
-
----
-
-## 1. Morning Routine (09:00 - 10:00)
-
-### A. Review New Orders
-1. **Navigate**: Admin > Orders
-2. **Filter**: Status = `Pending`
-3. **Action**:
-   - Check Payment Status:
-     - `Captured`: Proceed to pack.
-     - `Awaiting`: Call customer to confirm COD.
-   - If confirmed, select order -> `Create Fulfillment`.
-
-### B. Shipping Label Generation
-1. **Navigate**: Admin > Shipping (Custom Tab)
-2. **Action**: Click "Sync Orders with Shiprocket".
-3. **System Process**:
-   - Calls `POST /admin/custom/ship-order`.
-   - Backend `ShiprocketService` creates order on Shiprocket.
-   - Updates Medusa Order metadata with `shiprocket_id`.
-4. **Print**: Click "Print Label" (Opens PDF from Shiprocket).
+**Role:** Owner / Operator  
+**Goal:** Run the entire store efficiently without engineering help.
 
 ---
 
-## 2. Inventory Management (14:00 - 15:00)
+## 1. Product Upload (Weekly)
+**Tools:** CSV File, Admin Panel
 
-### A. Bulk Restock
-1. **Navigate**: Admin > Products
-2. **Action**: Click "Bulk Import".
-3. **Input**: Upload CSV (`SKU`, `Stock`, `Price`).
-4. **System Process**:
-   - Uploads to `import-jobs` queue (Redis).
-   - Background worker parses CSV.
-   - Updates `product_variant` table in Postgres.
-5. **Verify**: Check notification bell for "Import Complete".
+1. **Prepare CSV:**
+   - Use the `master` template.
+   - **IMPORTANT:** Use exact category slugs (e.g., `kanchipuram-silk`, NOT "Silk Saree").
+   - **Image URLs:** Must be hosted links (Drive/Dropbox/CDN).
+   - **Attributes:** Fill `Fabric`, `Occasion`, `Color` columns for filters to work.
+
+2. **Upload:**
+   - Go to `Admin > Products > Bulk Import`.
+   - Paste CSV data or upload file.
+   - Fix any errors reported by the validator immediately.
+
+3. **Verify:**
+   - Go to `Storefront > Catalog`.
+   - Filter by "New Arrivals" to see your items.
+   - Check if they appear in the correct Category filters.
+
+## 2. Order Fulfillment (Daily)
+**Tools:** Admin Panel
+
+1. **Check Orders:**
+   - Go to `Admin > Orders`.
+   - Filter by `Status: Pending`.
+
+2. **Pack & Ship:**
+   - Verify payment (if Prepaid) or call customer (if COD).
+   - Click "Print Label" (if integrated) or manually book shipping.
+   - Mark as `Fulfilled` in Admin. This triggers the "Shipped" WhatsApp/Email.
+
+## 3. Site Management (Monthly)
+**Tools:** Admin Settings
+
+1. **Banners:**
+   - The site auto-selects banners based on category names.
+   - To change a banner, you (currently) need to ask dev support or update the source image URL if dynamic.
+   
+2. **Featured Items:**
+   - Items with high stock and recent upload date appear first in "New Arrivals".
+   - To boost an item, edit it in Admin and set `Metadata > Highlight: true`.
 
 ---
 
-## 3. End of Day (18:00)
-
-### A. Handover
-1. Mark all packed orders as `Shipped` in Admin.
-2. **System Process**: `OrderWorkflowSubscriber` triggers WhatsApp notification `order_shipped` to customer.
-
-### B. Exception Check
-1. **Navigate**: Admin > Orders > Filter: `Requires Action`.
-2. Resolve failed payments or address errors.
+## 4. Safety Rules (DO NOT BREAK)
+1. **Never rename Category Slugs:** The menu links rely on `women-sarees`, `men-ethnic`, etc. Changing these breaks the site navigation.
+2. **Never delete the 'Default' variant:** Every product needs at least one variant to have a price.
+3. **Price format:** Always use numbers (e.g., `15000`), never symbols (`₹15,000`) in CSV.

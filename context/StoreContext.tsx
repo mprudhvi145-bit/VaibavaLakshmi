@@ -1,7 +1,10 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import Medusa from "@medusajs/medusa-js";
-import { BACKEND_URL, FALLBACK_PRODUCTS, FALLBACK_ORDERS } from '../constants';
+import { BACKEND_URL, FALLBACK_ORDERS } from '../constants';
 import { Product, Order, Cart, LineItem, OrderStatus, NotificationLog } from '../types';
+import { RAW_CSV_DATA } from '../data/rawCatalog';
+import { parseProductsFromCSV } from '../utils/csvHelpers';
 
 // Initialize Medusa Client
 const medusa = new Medusa({ baseUrl: BACKEND_URL, maxRetries: 0 });
@@ -44,17 +47,16 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const initStore = async () => {
       setIsLoading(true);
       try {
-        // Force Demo Mode for this prototype requirement
-        // In real world, we would check backend health here
-        throw new Error("Force Demo Mode");
-      } catch (e) {
-        setIsDemoMode(true);
-        // Load the huge auto-generated catalog
-        setProducts(FALLBACK_PRODUCTS);
-        
+        // Load CSV Data immediately for Demo
+        const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
+        setProducts(csvProducts);
+        setIsDemoMode(true); // Force demo mode for this frontend-only build
+
         if(!cart) {
             setCart({ id: 'demo_cart', items: [], region_id: 'in', subtotal: 0, total: 0 });
         }
+      } catch (e) {
+        console.error("Failed to load catalog", e);
       } finally {
         setIsLoading(false);
       }
@@ -70,56 +72,51 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const addToCart = async (variantId: string, quantity: number) => {
-    if (isDemoMode) {
-        const product = products.find(p => p.variants.some(v => v.id === variantId));
-        if (!product) return;
-        const variant = product.variants.find(v => v.id === variantId)!;
+    // Find product across all products that has this variant
+    const product = products.find(p => p.variants.some(v => v.id === variantId));
+    if (!product) return;
+    const variant = product.variants.find(v => v.id === variantId)!;
+    
+    setCart(prev => {
+        if (!prev) return null;
+        const existing = prev.items.find(i => i.variant.id === variantId);
+        const price = variant.prices[0].amount;
         
-        setCart(prev => {
-            if (!prev) return null;
-            const existing = prev.items.find(i => i.variant.id === variantId);
-            const price = variant.prices[0].amount;
-            
-            let newItems;
-            if (existing) {
-                newItems = prev.items.map(i => i.variant.id === variantId ? { ...i, quantity: i.quantity + quantity, total: (i.quantity + quantity) * price } : i);
-            } else {
-                const newItem: LineItem = {
-                    id: `item_${Date.now()}`,
-                    title: product.title,
-                    description: variant.title,
-                    thumbnail: product.thumbnail,
-                    quantity,
-                    unit_price: price,
-                    total: price * quantity,
-                    variant
-                };
-                newItems = [...prev.items, newItem];
-            }
-            const total = newItems.reduce((acc, i) => acc + i.total, 0);
-            return { ...prev, items: newItems, subtotal: total, total };
-        });
-        return;
-    }
+        let newItems;
+        if (existing) {
+            newItems = prev.items.map(i => i.variant.id === variantId ? { ...i, quantity: i.quantity + quantity, total: (i.quantity + quantity) * price } : i);
+        } else {
+            const newItem: LineItem = {
+                id: `item_${Date.now()}`,
+                title: product.title,
+                description: variant.title,
+                thumbnail: product.thumbnail,
+                quantity,
+                unit_price: price,
+                total: price * quantity,
+                variant
+            };
+            newItems = [...prev.items, newItem];
+        }
+        const total = newItems.reduce((acc, i) => acc + i.total, 0);
+        return { ...prev, items: newItems, subtotal: total, total };
+    });
   };
 
   const removeFromCart = async (lineId: string) => {
-    if (isDemoMode) {
-        setCart(prev => {
-            if(!prev) return null;
-            const newItems = prev.items.filter(i => i.id !== lineId);
-            const total = newItems.reduce((acc, i) => acc + i.total, 0);
-            return { ...prev, items: newItems, subtotal: total, total };
-        });
-        return;
-    }
+    setCart(prev => {
+        if(!prev) return null;
+        const newItems = prev.items.filter(i => i.id !== lineId);
+        const total = newItems.reduce((acc, i) => acc + i.total, 0);
+        return { ...prev, items: newItems, subtotal: total, total };
+    });
   };
 
   const completeOrder = async () => {
     if (isDemoMode) {
         if(!cart) return null;
         const demoOrder: Order = {
-            ...FALLBACK_ORDERS[0], // fallback template
+            ...FALLBACK_ORDERS[0],
             id: `order_${Date.now()}`,
             display_id: Math.floor(Math.random() * 10000),
             items: cart.items,
@@ -140,23 +137,29 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return null;
   }
 
-  // Admin Stubs
+  // Admin Stub Overrides
   const login = async (email: string, pass: string) => { setIsAuthenticated(true); return true; };
   const refreshAdminData = async () => {};
   const updateOrderStatus = async () => {};
   const generateShippingLabel = async () => {};
+  
+  // Updates State directly when operator imports new CSV
   const bulkImportProducts = async (csvData: any[]) => {
-      // Allow appending CSV data to current session state for demo
+      // In this version, we map the "parsedData" from Products.tsx (which is raw objects) 
+      // into strict Product Type matching our CSV parser output
       const newProds = csvData.map((d: any, i: number) => ({
-        id: `imp-${i}`,
+        id: d.handle,
         title: d.title,
         handle: d.handle,
         thumbnail: d.thumbnail,
+        description: d.metadata?.Description || '',
         status: 'published',
-        variants: [{ id: `v-${i}`, title: 'Default', inventory_quantity: 10, prices: [{ currency_code: 'inr', amount: d.price }] }],
-        tags: [{ id: `t-${i}`, value: `Category:${d.category}` }]
+        variants: [{ id: `v_${d.handle}`, title: 'Default', inventory_quantity: d.stock, prices: [{ currency_code: 'inr', amount: d.price }] }],
+        tags: d.tags,
+        metadata: d.metadata
       })) as Product[];
-      setProducts(prev => [...newProds, ...prev]);
+      
+      setProducts(newProds); // Replace catalog with new import
   };
   const addProduct = async () => {};
 

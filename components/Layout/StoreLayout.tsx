@@ -3,10 +3,12 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Search, User, Heart, Home, Grid, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { BRAND_ASSETS, CATEGORY_HIERARCHY } from '../../constants';
+import SearchOverlay from '../Search/SearchOverlay';
 
 const StoreLayout: React.FC = () => {
   const { cart } = useStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const location = useLocation();
@@ -21,6 +23,9 @@ const StoreLayout: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-brand-ivory text-brand-text font-sans">
       
+      {/* Search Overlay Component */}
+      <SearchOverlay isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
       {/* Announcement Bar */}
       <div className="bg-brand-primary text-brand-gold text-[10px] md:text-xs py-2 text-center tracking-widest uppercase font-medium z-50 relative">
         Free Shipping on all domestic orders above ₹10,000 | Worldwide Shipping Available
@@ -106,7 +111,13 @@ const StoreLayout: React.FC = () => {
 
             {/* Right Icons */}
             <div className="flex items-center space-x-4 md:space-x-6">
-              <button className="hidden md:block hover:text-brand-primary transition-colors"><Search size={20} strokeWidth={1.5} /></button>
+              <button 
+                onClick={() => setIsSearchOpen(true)}
+                className="hover:text-brand-primary transition-colors p-1"
+                aria-label="Search"
+              >
+                <Search size={20} strokeWidth={1.5} />
+              </button>
               <button className="hidden md:block hover:text-brand-primary transition-colors"><Heart size={20} strokeWidth={1.5} /></button>
               <Link to="/cart" className="relative hover:text-brand-primary transition-colors">
                 <ShoppingBag size={20} strokeWidth={1.5} />

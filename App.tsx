@@ -11,6 +11,7 @@ import Home from './pages/store/Home';
 import Catalog from './pages/store/Catalog';
 import ProductDetail from './pages/store/ProductDetail';
 import Cart from './pages/store/Cart';
+import SearchResults from './pages/store/SearchResults';
 
 // Admin Pages
 import Dashboard from './pages/admin/Dashboard';
@@ -30,6 +31,7 @@ const App: React.FC = () => {
           <Route path="/" element={<StoreLayout />}>
             <Route index element={<Home />} />
             <Route path="catalog" element={<Catalog />} />
+            <Route path="search" element={<SearchResults />} />
             <Route path="product/:id" element={<ProductDetail />} />
             <Route path="cart" element={<Cart />} />
           </Route>

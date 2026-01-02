@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  # 1. Medusa Backend
+  backend:
+    build: 
+      context: ../packages/medusa-backend
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/medusa_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - COOKIE_SECRET=${COOKIE_SECRET}
+      - ADMIN_CORS=${ADMIN_CORS}
+      - STORE_CORS=${STORE_CORS}
+      - OPERATOR_SAFE_MODE=true
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  # 2. Database
+  postgres:
+    container_name: medusa-db
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=medusa_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../scripts:/scripts
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+
+  # 3. Redis (Queue/Cache)
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+
+  # 4. Storefront (Next.js)
+  storefront:
+    build:
+      context: ../apps/storefront
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - MEDUSA_BACKEND_URL=http://backend:9000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

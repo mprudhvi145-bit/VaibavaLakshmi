@@ -1,0 +1,5 @@
+{
+  "name": "VaibavaLakshmi Storefront",
+  "description": "Full-stack e-commerce solution using Medusa architecture with React frontend, featuring bulk management, shipping integration, and automated notifications.",
+  "requestFramePermissions": []
+}

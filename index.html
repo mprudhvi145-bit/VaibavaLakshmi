@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vaibava Lakshmi Shopping Mall</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                primary: '#be123c', // Rose 700 - The main brand red
+                dark: '#881337',    // Rose 900 - For footers/headers
+                light: '#fff1f2',   // Rose 50  - For backgrounds
+                accent: '#d97706',  // Amber 600 - For buttons/highlights
+                gold: '#fbbf24',    // Amber 400 - For stars/icons
+                text: '#334155',    // Slate 700
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'], // Elegant font for headings
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      h1, h2, h3, .brand-font { font-family: 'Playfair Display', serif; }
+      /* Custom scrollbar for admin panels */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #f1f1f1; }
+      ::-webkit-scrollbar-thumb { background: #fda4af; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #be123c; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.11.0",
+    "@medusajs/medusa-js": "https://esm.sh/@medusajs/medusa-js@6.1.5",
+    "axios": "https://esm.sh/axios@1.6.2",
+    "@medusajs/medusa": "https://esm.sh/@medusajs/medusa@^2.12.3",
+    "typeorm": "https://esm.sh/typeorm@^0.3.28",
+    "express": "https://esm.sh/express@^5.2.1",
+    "cors": "https://esm.sh/cors@^2.8.5",
+    "express-rate-limit": "https://esm.sh/express-rate-limit@^8.2.1",
+    "medusa-core-utils": "https://esm.sh/medusa-core-utils@^1.2.3"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

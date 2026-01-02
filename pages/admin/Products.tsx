@@ -1,77 +1,91 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { Plus, Upload, MoreVertical, Search, FileDown, Copy, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import { Plus, Upload, MoreVertical, Search, FileDown, Copy, CheckCircle, AlertTriangle, X, ShieldAlert } from 'lucide-react';
 import { CSV_TEMPLATES } from '../../constants';
-import { Product } from '../../types';
+import { validateBatch } from '../../utils/csv-validator';
 
 const Products: React.FC = () => {
   const { products, addProduct, bulkImportProducts } = useStore();
   const [isUploadModalOpen, setUploadModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [activeTemplate, setActiveTemplate] = useState<'master' | 'saree' | 'lehenga' | 'mens'>('master');
+  const [validationReport, setValidationReport] = useState<string[]>([]);
+  const [parsedData, setParsedData] = useState<any[]>([]);
   
-  const handleBulkUpload = () => {
-    // Advanced Parsing Logic for "Strict" Attributes
+  const handleParse = () => {
+    setValidationReport([]);
+    setParsedData([]);
+
     const rows = importText.split('\n').filter(r => r.trim() !== '');
-    if(rows.length < 2) return;
+    if(rows.length < 2) {
+        setValidationReport(["Error: CSV is empty or missing headers."]);
+        return;
+    }
 
     const headers = rows[0].split(',').map(h => h.trim());
     
-    // Parse Rows
-    const data = rows.slice(1).map(row => {
-        // Handle CSV commas inside quotes if needed (simplified here)
-        const cols = row.split(','); 
-        const productObj: any = {};
-        
-        headers.forEach((header, index) => {
-           productObj[header] = cols[index]?.trim();
-        });
+    // 1. Raw Parsing
+    const rawData = rows.slice(1).map(row => {
+        const cols = row.split(','); // Simple split, assumes no commas in values for this strict version
+        const obj: any = {};
+        headers.forEach((h, i) => obj[h] = cols[i]?.trim());
+        return obj;
+    });
 
-        // --- DATA TRANSFORMATION FOR MEDUSA ---
-        // 1. Core Fields
-        const transformed: any = {
+    // 2. Strict Validation
+    const { validRows, report } = validateBatch(rawData);
+
+    if (report.length > 0) {
+        setValidationReport(report);
+        // If critical errors exist, do not proceed
+        const hasErrors = report.some(r => !r.includes("very low")); // primitive warning check
+        if(hasErrors && validRows.length !== rawData.length) {
+            return; 
+        }
+    }
+
+    // 3. Transformation for Medusa (Only Valid Rows)
+    const transformed = validRows.map(productObj => {
+        const product: any = {
             title: productObj['Title'],
-            sku: `SKU-${Math.random().toString(36).substr(2, 6).toUpperCase()}`, // Auto-gen SKU if missing
-            price: productObj['Price'],
-            stock: productObj['Stock'] || 1,
+            sku: `SKU-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+            price: parseFloat(productObj['Price']) * 100, // Convert to lowest denomination (paisa)
+            stock: parseInt(productObj['Stock']) || 0,
             thumbnail: productObj['Image URL'],
-            handle: productObj['Handle'] || productObj['Title'].toLowerCase().replace(/ /g, '-')
+            handle: productObj['Handle']
         };
 
-        // 2. Generate Tags (Key:Value) from Filter Columns
-        // Expanded list of Tag Fields based on Attribute Dictionary
-        const tagFields = [
-            'Category', 'Fabric', 'Occasion', 'Color', 'Work Type', 
-            'Border', 'Blouse', 'Lehenga Type', 'Fit', 'Sleeve', 'Set Type'
-        ];
-        transformed.tags = [];
+        const tagFields = ['Category', 'Fabric', 'Occasion', 'Color', 'Work Type', 'Border', 'Blouse', 'Lehenga Type', 'Fit', 'Sleeve', 'Set Type'];
+        product.tags = [];
         tagFields.forEach(field => {
             if (productObj[field]) {
-                // E.g. Tag = "Fabric:Silk"
-                transformed.tags.push({ id: `tag_${Math.random()}`, value: `${field}:${productObj[field]}` });
+                // Split multi-values by pipe
+                const values = productObj[field].includes('|') ? productObj[field].split('|') : [productObj[field]];
+                values.forEach((v: string) => {
+                    product.tags.push({ id: `tag_${Math.random()}`, value: `${field}:${v.trim()}` });
+                });
             }
         });
 
-        // 3. Generate Metadata from specific detail columns
-        // Expanded list of Metadata Fields
-        const metaFields = [
-            'Care Instructions', 'Dispatch Time', 'Return Eligible', 'Description',
-            'Saree Length', 'Blouse Included', 'Dupatta', 'Waist Range'
-        ];
-        transformed.metadata = {};
+        const metaFields = ['Care Instructions', 'Dispatch Time', 'Return Eligible', 'Description', 'Saree Length', 'Blouse Included', 'Dupatta', 'Waist Range'];
+        product.metadata = {};
         metaFields.forEach(field => {
-             if (productObj[field]) {
-                 transformed.metadata[field] = productObj[field];
-             }
+             if (productObj[field]) product.metadata[field] = productObj[field];
         });
 
-        return transformed;
+        return product;
     });
     
-    bulkImportProducts(data);
-    setUploadModalOpen(false);
-    setImportText('');
-    alert(`Successfully processed ${data.length} products with attributes.`);
+    setParsedData(transformed);
+  };
+
+  const handleCommitImport = () => {
+      bulkImportProducts(parsedData);
+      setUploadModalOpen(false);
+      setImportText('');
+      setParsedData([]);
+      setValidationReport([]);
+      alert(`Successfully imported ${parsedData.length} products.`);
   };
 
   const downloadTemplate = () => {
@@ -197,58 +211,93 @@ const Products: React.FC = () => {
       {/* Import Modal */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-slate-800">Bulk Product Import</h3>
                 <button onClick={() => setUploadModalOpen(false)}><X className="text-slate-400 hover:text-slate-600" size={24} /></button>
             </div>
             
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
-                <h4 className="text-sm font-bold text-slate-700 mb-2">1. Download Template</h4>
-                <div className="flex gap-2">
-                    {(['master', 'saree', 'lehenga', 'mens'] as const).map(t => (
-                        <button 
-                            key={t}
-                            onClick={() => setActiveTemplate(t)}
-                            className={`px-3 py-1 text-xs rounded border uppercase font-medium ${activeTemplate === t ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600'}`}
-                        >
-                            {t}
+            <div className="overflow-y-auto flex-1 pr-2">
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
+                    <h4 className="text-sm font-bold text-slate-700 mb-2">1. Download Template</h4>
+                    <div className="flex gap-2">
+                        {(['master', 'saree', 'lehenga', 'mens'] as const).map(t => (
+                            <button 
+                                key={t}
+                                onClick={() => setActiveTemplate(t)}
+                                className={`px-3 py-1 text-xs rounded border uppercase font-medium ${activeTemplate === t ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600'}`}
+                            >
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                        <code className="text-[10px] text-slate-500 font-mono bg-white p-2 rounded border w-3/4 overflow-x-auto whitespace-nowrap">
+                            {CSV_TEMPLATES[activeTemplate].substring(0, 60)}...
+                        </code>
+                        <button onClick={downloadTemplate} className="text-emerald-600 text-sm font-bold hover:underline flex items-center gap-1">
+                            <FileDown size={14} /> Download CSV
                         </button>
-                    ))}
+                    </div>
                 </div>
-                <div className="mt-3 flex items-center justify-between">
-                    <code className="text-[10px] text-slate-500 font-mono bg-white p-2 rounded border w-3/4 overflow-x-auto whitespace-nowrap">
-                        {CSV_TEMPLATES[activeTemplate].substring(0, 60)}...
-                    </code>
-                    <button onClick={downloadTemplate} className="text-emerald-600 text-sm font-bold hover:underline flex items-center gap-1">
-                        <FileDown size={14} /> Download CSV
-                    </button>
-                </div>
+
+                <h4 className="text-sm font-bold text-slate-700 mb-2">2. Paste Data</h4>
+                <textarea 
+                    className="w-full h-40 border border-slate-300 rounded-lg p-3 font-mono text-xs mb-4 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    placeholder={`Handle,Title,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Care Instructions\nred-saree-01,Red Silk Saree,women-sarees,12000,5,https://...,Silk,Wedding,Red,Zari,Dry Clean Only`}
+                    value={importText}
+                    onChange={e => {
+                        setImportText(e.target.value);
+                        setValidationReport([]);
+                        setParsedData([]);
+                    }}
+                ></textarea>
+
+                {/* Validation Report UI */}
+                {validationReport.length > 0 && (
+                    <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                        <h5 className="flex items-center gap-2 text-red-700 font-bold text-sm mb-2"><ShieldAlert size={16} /> Validation Issues Found</h5>
+                        <ul className="text-xs text-red-600 space-y-1 list-disc pl-4">
+                            {validationReport.slice(0, 5).map((err, i) => (
+                                <li key={i}>{err}</li>
+                            ))}
+                            {validationReport.length > 5 && <li>...and {validationReport.length - 5} more errors.</li>}
+                        </ul>
+                    </div>
+                )}
+                
+                {parsedData.length > 0 && (
+                     <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2 text-green-700 text-sm">
+                        <CheckCircle size={16} />
+                        <span className="font-bold">{parsedData.length} Valid Products Ready to Import.</span>
+                     </div>
+                )}
             </div>
 
-            <h4 className="text-sm font-bold text-slate-700 mb-2">2. Paste Data</h4>
-            <p className="text-xs text-slate-500 mb-2">System will automatically create Tags for Fabric, Color, Occasion etc.</p>
-            <textarea 
-                className="w-full h-40 border border-slate-300 rounded-lg p-3 font-mono text-xs mb-4 focus:ring-2 focus:ring-emerald-500 outline-none"
-                placeholder={`Handle,Title,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Care Instructions\nred-saree-01,Red Silk Saree,Sarees,12000,5,https://...,Silk,Wedding,Red,Zari,Dry Clean Only`}
-                value={importText}
-                onChange={e => setImportText(e.target.value)}
-            ></textarea>
-
-            <div className="flex gap-3 justify-end border-t pt-4">
+            <div className="flex gap-3 justify-end border-t pt-4 mt-2">
               <button 
                 onClick={() => setUploadModalOpen(false)}
                 className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg"
               >
                 Cancel
               </button>
-              <button 
-                onClick={handleBulkUpload}
-                disabled={!importText}
-                className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-              >
-                Parse & Import
-              </button>
+              
+              {parsedData.length === 0 ? (
+                  <button 
+                    onClick={handleParse}
+                    disabled={!importText}
+                    className="px-4 py-2 bg-slate-800 text-white font-medium rounded-lg hover:bg-slate-900 disabled:opacity-50"
+                  >
+                    Validate Data
+                  </button>
+              ) : (
+                  <button 
+                    onClick={handleCommitImport}
+                    className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700"
+                  >
+                    Import Validated Products
+                  </button>
+              )}
             </div>
           </div>
         </div>

@@ -19,7 +19,7 @@ export default (rootDirectory: string): Router | Router[] => {
     res.status(200).json({ 
         status: "ok", 
         timestamp: new Date().toISOString(),
-        uptime: process.uptime() 
+        uptime: (process as any).uptime() 
     });
   });
 

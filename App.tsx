@@ -9,6 +9,7 @@ import AdminLayout from './components/Layout/AdminLayout';
 // Store Pages
 import Home from './pages/store/Home';
 import Catalog from './pages/store/Catalog';
+import ProductDetail from './pages/store/ProductDetail';
 import Cart from './pages/store/Cart';
 
 // Admin Pages
@@ -29,7 +30,7 @@ const App: React.FC = () => {
           <Route path="/" element={<StoreLayout />}>
             <Route index element={<Home />} />
             <Route path="catalog" element={<Catalog />} />
-            <Route path="product/:id" element={<div className="p-8 text-center">Product Detail View (Placeholder)</div>} />
+            <Route path="product/:id" element={<ProductDetail />} />
             <Route path="cart" element={<Cart />} />
           </Route>
 

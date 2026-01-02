@@ -59,6 +59,7 @@ export interface Product {
   variants: ProductVariant[];
   collection_id?: string;
   tags?: { id: string; value: string }[];
+  metadata?: Record<string, any>; // JSONB for detailed attributes
 }
 
 export interface LineItem {

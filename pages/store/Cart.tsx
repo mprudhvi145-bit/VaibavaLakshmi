@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Trash2, CreditCard, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Cart: React.FC = () => {
-  const { cart, removeFromCart, completeOrder, isLoading } = useStore();
-  const [step, setStep] = useState('cart');
+  const { cart, removeFromCart, isLoading } = useStore();
+  const navigate = useNavigate();
 
   if (!cart?.items?.length) {
     return (
@@ -58,11 +59,11 @@ const Cart: React.FC = () => {
               </div>
             </div>
             <button 
-              onClick={completeOrder}
+              onClick={() => navigate('/checkout')}
               disabled={isLoading}
-              className="w-full bg-emerald-900 text-white py-4 rounded-lg font-bold hover:bg-emerald-800 transition-colors flex items-center justify-center disabled:opacity-50"
+              className="w-full bg-emerald-900 text-white py-4 rounded-lg font-bold hover:bg-emerald-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {isLoading ? 'Processing...' : 'Checkout'}
+              Secure Checkout <ChevronRight size={18} />
             </button>
           </div>
         </div>

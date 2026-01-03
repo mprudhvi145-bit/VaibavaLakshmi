@@ -1,5 +1,7 @@
+
 import { Router } from "express";
 import { adminRateLimit, safeModeMiddleware, rbacMiddleware } from "./middlewares/security";
+import { authenticate } from "./middlewares/auth";
 import { getConfigFile } from "medusa-core-utils";
 import cors from "cors";
 
@@ -26,6 +28,10 @@ export default (rootDirectory: string): Router | Router[] => {
   // 2. Apply Security Middlewares to Admin
   router.use("/admin", cors(corsOptions));
   router.use("/admin", adminRateLimit as any);
+  
+  // NEW: Authentication Required for ALL /admin routes
+  router.use("/admin", authenticate); 
+
   router.use("/admin", safeModeMiddleware);
   router.use("/admin", rbacMiddleware);
 

@@ -21,7 +21,13 @@
     "express": "^5.2.1",
     "cors": "^2.8.5",
     "express-rate-limit": "^8.2.1",
-    "medusa-core-utils": "^1.2.3"
+    "medusa-core-utils": "^1.2.3",
+    "path": "^0.12.7",
+    "multer": "^2.0.2",
+    "fs": "^0.0.1-security",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

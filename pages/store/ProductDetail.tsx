@@ -1,8 +1,10 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
 import { Star, Truck, ShieldCheck, Heart, Share2, Ruler, Clock, RotateCcw } from 'lucide-react';
 import { Product } from '../../types';
+import SEOHelper from '../../components/Shared/SEOHelper';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +35,13 @@ const ProductDetail: React.FC = () => {
 
   return (
     <div className="bg-brand-ivory min-h-screen pt-4 pb-20">
+      <SEOHelper 
+        title={product.title}
+        description={product.description}
+        type="product"
+        product={product}
+      />
+
       <div className="container mx-auto px-4 lg:px-12">
         
         {/* Breadcrumb / Category Context */}
@@ -48,14 +57,14 @@ const ProductDetail: React.FC = () => {
              <div className="hidden lg:flex flex-col gap-4 w-24">
                 {[product.thumbnail, product.thumbnail, product.thumbnail].map((img, idx) => (
                     <button key={idx} onClick={() => setActiveImg(img)} className={`border-2 ${activeImg === img ? 'border-brand-primary' : 'border-transparent'}`}>
-                        <img src={img} className="w-full aspect-[3/4] object-cover" />
+                        <img src={img} className="w-full aspect-[3/4] object-cover" loading="lazy" />
                     </button>
                 ))}
              </div>
              
              {/* Main Image */}
              <div className="flex-1 bg-brand-gray aspect-[3/4] lg:aspect-[4/5] overflow-hidden relative">
-                <img src={activeImg} alt={product.title} className="w-full h-full object-cover" />
+                <img src={activeImg} alt={product.title} className="w-full h-full object-cover" loading="eager" />
                 <button className="absolute top-4 right-4 p-3 bg-white/80 rounded-full hover:text-brand-primary transition-colors">
                     <Heart size={20} />
                 </button>

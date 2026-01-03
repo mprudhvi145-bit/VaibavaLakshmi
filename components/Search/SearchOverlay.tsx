@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, ChevronRight, TrendingUp } from 'lucide-react';
+import { Search, X, ChevronRight, TrendingUp, History } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { getSearchSuggestions } from '../../utils/searchLogic';
+import { getSearchSuggestions, trackSearchQuery, getPopularSearches } from '../../utils/searchLogic';
+import Highlighter from '../Shared/Highlighter';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -15,12 +17,14 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<ReturnType<typeof getSearchSuggestions> | null>(null);
+  const [popularSearches, setPopularSearches] = useState<string[]>([]);
 
-  // Auto-focus and Body Scroll Lock
+  // Auto-focus, Body Scroll Lock, and Load Popular
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       setTimeout(() => inputRef.current?.focus(), 100);
+      setPopularSearches(getPopularSearches());
     } else {
       document.body.style.overflow = 'unset';
     }
@@ -39,11 +43,16 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
     }
   }, [query, products]);
 
-  const handleSearch = (e?: React.FormEvent) => {
+  const handleSearch = (e?: React.FormEvent, term?: string) => {
     e?.preventDefault();
-    if (!query.trim()) return;
+    const finalQuery = term || query;
+    if (!finalQuery.trim()) return;
+    
+    // Tracking
+    trackSearchQuery(finalQuery);
+
     onClose();
-    navigate(`/search?q=${encodeURIComponent(query)}`);
+    navigate(`/search?q=${encodeURIComponent(finalQuery)}`);
   };
 
   if (!isOpen) return null;
@@ -77,19 +86,38 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
       <div className="flex-1 overflow-y-auto container mx-auto px-4 py-8">
         
         {/* State: Typing but no results yet */}
-        {!suggestions && query.length < 2 && (
-           <div className="space-y-6 opacity-60">
-             <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Popular Searches</h3>
-             <div className="flex flex-wrap gap-3">
-               {['Kanchipuram Silk', 'Bridal Lehenga', 'Men Sherwani', 'Haldi Outfit'].map(term => (
-                 <button 
-                   key={term}
-                   onClick={() => { setQuery(term); navigate(`/search?q=${term}`); onClose(); }}
-                   className="px-4 py-2 border border-slate-200 rounded-full text-sm text-slate-600 hover:border-brand-primary hover:text-brand-primary transition-colors flex items-center gap-2"
-                 >
-                   <TrendingUp size={14} /> {term}
-                 </button>
-               ))}
+        {!suggestions && (
+           <div className="space-y-8 animate-slide-up">
+             {/* Popular Searches */}
+             <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                    <TrendingUp size={14} /> Popular Now
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {popularSearches.length > 0 ? popularSearches.map(term => (
+                    <button 
+                      key={term}
+                      onClick={() => handleSearch(undefined, term)}
+                      className="px-4 py-2 border border-slate-200 bg-white rounded-full text-sm text-slate-600 hover:border-brand-primary hover:text-brand-primary transition-colors"
+                    >
+                      {term}
+                    </button>
+                  )) : (
+                    <span className="text-slate-400 italic text-sm">No recent searches. Try 'Kanchipuram'.</span>
+                  )}
+                </div>
+             </div>
+
+             {/* Quick Links / Suggestions */}
+             <div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Browse by Category</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {['Sarees', 'Lehengas', 'Sherwanis', 'Kurtas'].map(cat => (
+                        <button key={cat} onClick={() => { navigate(`/catalog?cat=${cat.toLowerCase()}`); onClose(); }} className="p-4 bg-brand-primary/5 hover:bg-brand-primary/10 rounded-lg text-left transition-colors">
+                            <span className="block font-serif text-brand-primary text-lg">{cat}</span>
+                        </button>
+                    ))}
+                </div>
              </div>
            </div>
         )}
@@ -107,10 +135,10 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
                     {suggestions.categories.map(cat => (
                       <button
                         key={cat}
-                        onClick={() => { navigate(`/catalog?cat=${cat}`); onClose(); }}
+                        onClick={() => { navigate(`/catalog?cat=${cat.toLowerCase().replace(' ', '-')}`); onClose(); }}
                         className="block w-full text-left py-2 text-lg font-serif text-brand-primary hover:text-brand-gold transition-colors"
                       >
-                        {cat.replace(/-/g, ' ')}
+                        <Highlighter text={cat.replace(/-/g, ' ')} highlight={query} />
                       </button>
                     ))}
                   </div>
@@ -118,7 +146,7 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
               )}
               
               <button 
-                onClick={handleSearch}
+                onClick={(e) => handleSearch(e)}
                 className="text-sm font-bold text-slate-800 underline hover:text-brand-primary"
               >
                 View all {suggestions.totalCount} results for "{query}"
@@ -138,7 +166,9 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ isOpen, onClose }) => {
                     >
                       <img src={product.thumbnail} alt={product.title} className="w-16 h-20 object-cover rounded bg-slate-100" />
                       <div>
-                        <h4 className="font-serif text-slate-800 group-hover:text-brand-primary transition-colors">{product.title}</h4>
+                        <h4 className="font-serif text-slate-800 group-hover:text-brand-primary transition-colors">
+                            <Highlighter text={product.title} highlight={query} />
+                        </h4>
                         <p className="text-sm font-medium text-slate-500">₹{(product.variants[0].prices[0].amount / 100).toLocaleString()}</p>
                       </div>
                       <ChevronRight className="ml-auto text-slate-300 group-hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-all" size={20} />

@@ -1,10 +1,11 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
 import { searchProducts } from '../../utils/searchLogic';
-import { ArrowLeft, Filter, SortAsc, Search as SearchIcon } from 'lucide-react';
+import { SortAsc, Search as SearchIcon } from 'lucide-react';
 import { SORT_OPTIONS } from '../../constants';
+import Highlighter from '../../components/Shared/Highlighter';
 
 const SearchResults: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,11 +87,17 @@ const SearchResults: React.FC = () => {
                               </button>
                           </div>
                       </div>
-                      <h3 className="text-sm font-serif text-slate-900 group-hover:text-brand-primary truncate">{product.title}</h3>
+                      <h3 className="text-sm font-serif text-slate-900 group-hover:text-brand-primary truncate">
+                        <Highlighter text={product.title} highlight={query} />
+                      </h3>
                       <div className="flex items-center justify-between mt-1">
                           <span className="text-sm font-bold text-slate-800">₹{price.toLocaleString()}</span>
                       </div>
-                      {fabric && <p className="text-[10px] text-slate-500 uppercase mt-1">{fabric}</p>}
+                      {fabric && (
+                        <p className="text-[10px] text-slate-500 uppercase mt-1">
+                            <Highlighter text={fabric} highlight={query} />
+                        </p>
+                      )}
                   </Link>
                 );
             })}

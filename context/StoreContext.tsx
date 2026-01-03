@@ -5,6 +5,7 @@ import { BACKEND_URL, FALLBACK_ORDERS } from '../constants';
 import { Product, Order, Cart, LineItem, OrderStatus, NotificationLog } from '../types';
 import { RAW_CSV_DATA } from '../data/rawCatalog';
 import { parseProductsFromCSV } from '../utils/csvHelpers';
+import { SEARCH_CONFIG } from '../utils/searchConfig';
 
 // Initialize Medusa Client
 const medusa = new Medusa({ baseUrl: BACKEND_URL, maxRetries: 0 });
@@ -43,13 +44,45 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
+  // --- CATALOG LOADING WITH PERSISTENCE ---
   useEffect(() => {
     const initStore = async () => {
       setIsLoading(true);
       try {
-        // Load CSV Data immediately for Demo
-        const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
-        setProducts(csvProducts);
+        // 1. Check LocalStorage for valid Index
+        const cachedIndex = localStorage.getItem(SEARCH_CONFIG.STORAGE_KEY_INDEX);
+        let loadedProducts: Product[] = [];
+        let loadedFromCache = false;
+
+        if (cachedIndex) {
+            try {
+                const { version, data } = JSON.parse(cachedIndex);
+                if (version === SEARCH_CONFIG.INDEX_VERSION && Array.isArray(data) && data.length > 0) {
+                    loadedProducts = data;
+                    loadedFromCache = true;
+                    console.log(`[Store] Loaded ${data.length} products from Cache (${version})`);
+                }
+            } catch (e) {
+                console.warn("[Store] Cache corrupted, parsing fresh.");
+            }
+        }
+
+        // 2. Parse Fresh if needed
+        if (!loadedFromCache) {
+            loadedProducts = parseProductsFromCSV(RAW_CSV_DATA);
+            // Save to Cache
+            try {
+                localStorage.setItem(SEARCH_CONFIG.STORAGE_KEY_INDEX, JSON.stringify({
+                    version: SEARCH_CONFIG.INDEX_VERSION,
+                    data: loadedProducts
+                }));
+                console.log(`[Store] Parsed & Cached ${loadedProducts.length} products.`);
+            } catch (e) {
+                console.error("[Store] Failed to save cache (quota exceeded?)");
+            }
+        }
+
+        setProducts(loadedProducts);
         setIsDemoMode(true); // Force demo mode for this frontend-only build
 
         if(!cart) {
@@ -145,8 +178,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
   // Updates State directly when operator imports new CSV
   const bulkImportProducts = async (csvData: any[]) => {
-      // In this version, we map the "parsedData" from Products.tsx (which is raw objects) 
-      // into strict Product Type matching our CSV parser output
       const newProds = csvData.map((d: any, i: number) => ({
         id: d.handle,
         title: d.title,
@@ -159,7 +190,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         metadata: d.metadata
       })) as Product[];
       
-      setProducts(newProds); // Replace catalog with new import
+      setProducts(newProds);
+      
+      // Update Cache
+      localStorage.setItem(SEARCH_CONFIG.STORAGE_KEY_INDEX, JSON.stringify({
+          version: SEARCH_CONFIG.INDEX_VERSION,
+          data: newProds
+      }));
   };
   const addProduct = async () => {};
 

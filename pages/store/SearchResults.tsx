@@ -2,7 +2,6 @@
 import React, { useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
-import { searchProducts } from '../../utils/searchLogic';
 import { SortAsc, Search as SearchIcon } from 'lucide-react';
 import { SORT_OPTIONS } from '../../constants';
 import Highlighter from '../../components/Shared/Highlighter';
@@ -12,11 +11,13 @@ const SearchResults: React.FC = () => {
   const query = searchParams.get('q') || '';
   const sortParam = searchParams.get('sort') || 'relevance';
   
-  const { products } = useStore();
+  const { searchEngine } = useStore();
 
-  // Core Search Logic
+  // Core Search Logic via SearchEngine
   const results = useMemo(() => {
-    let matches = searchProducts(products, query);
+    if (!searchEngine) return [];
+    
+    let matches = searchEngine.search(query, 50); // Limit 50 for page
 
     // Sorting
     return matches.sort((a, b) => {
@@ -26,10 +27,10 @@ const SearchResults: React.FC = () => {
         case 'price_asc': return pA - pB;
         case 'price_desc': return pB - pA;
         case 'newest': return b.id.localeCompare(a.id);
-        case 'relevance': default: return 0; // Already scored in searchProducts
+        case 'relevance': default: return 0; // Already scored by engine
       }
     });
-  }, [products, query, sortParam]);
+  }, [searchEngine, query, sortParam]);
 
   return (
     <div className="bg-brand-ivory min-h-screen pb-20">

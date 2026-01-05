@@ -1,11 +1,10 @@
-
 import fs from 'fs';
 import path from 'path';
 import { Product, ProductVariant } from '../contracts';
 import { VALID_SLUGS } from '../config/governance';
 
 // Fallback Data Path
-const DATA_PATH = path.resolve(__dirname, '../../../data/MOCK_CATALOG.csv');
+const DATA_PATH = path.resolve('data/MOCK_CATALOG.csv');
 
 export class CatalogLoader {
   private products: Product[] = [];

@@ -1,38 +1,30 @@
+
 {
-  "name": "vaibavalakshmi-storefront",
+  "name": "vaibava-storefront",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "recharts": "^3.6.0",
-    "react-dom": "^19.2.3",
-    "lucide-react": "^0.562.0",
-    "react-router-dom": "^7.11.0",
-    "@medusajs/medusa-js": "6.1.5",
-    "axios": "1.6.2",
-    "@medusajs/medusa": "^2.12.3",
-    "typeorm": "^0.3.28",
-    "express": "^5.2.1",
-    "cors": "^2.8.5",
-    "express-rate-limit": "^8.2.1",
-    "medusa-core-utils": "^1.2.3",
-    "path": "^0.12.7",
-    "multer": "^2.0.2",
-    "fs": "^0.0.1-security",
-    "bcryptjs": "^3.0.3",
-    "jsonwebtoken": "^9.0.3",
-    "reflect-metadata": "^0.2.2"
+    "@medusajs/medusa": "^1.17.2",
+    "@medusajs/medusa-js": "^6.1.5",
+    "axios": "^1.6.2",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
   }
 }

@@ -3,8 +3,8 @@ import path from 'path';
 import { Product, ProductVariant } from '../contracts';
 import { VALID_SLUGS } from '../config/governance';
 
-// Fallback Data Path
-const DATA_PATH = path.resolve('data/MOCK_CATALOG.csv');
+// Robust Path Resolution: Handles local dev and Docker /app paths
+const DATA_PATH = path.join((process as any).cwd(), 'data', 'MOCK_CATALOG.csv');
 
 export class CatalogLoader {
   private products: Product[] = [];
@@ -29,13 +29,14 @@ export class CatalogLoader {
 
   private loadInitialData() {
     try {
+      console.log(`[CatalogLoader] Loading data from: ${DATA_PATH}`);
       if (fs.existsSync(DATA_PATH)) {
         const content = fs.readFileSync(DATA_PATH, 'utf-8');
         const result = this.parseCSV(content);
         this.products = result.data;
         console.log(`[CatalogLoader] Initialized with ${this.products.length} products.`);
       } else {
-        console.warn(`[CatalogLoader] No initial data found at ${DATA_PATH}`);
+        console.warn(`[CatalogLoader] No initial data found at ${DATA_PATH}. Ensure 'data/' folder is copied in Dockerfile.`);
       }
     } catch (e) {
       console.error('[CatalogLoader] Failed to load initial data', e);

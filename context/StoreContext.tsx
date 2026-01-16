@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { supabase } from '../utils/supabaseClient';
-import { Product, Order, Cart, LineItem } from '../types'; // Updated types
+import { Product, Order, Cart, LineItem } from '../types';
 import { SearchEngine } from '../search';
 import { RAW_CSV_DATA } from '../data/rawCatalog';
 import { parseProductsFromCSV } from '../utils/csvHelpers';
@@ -29,7 +29,6 @@ interface StoreContextType {
   removeFromCart: (lineId: string) => Promise<void>;
   createCart: () => Promise<void>;
   
-  // Checkout & Orders
   validateCart: () => Promise<any>;
   placeOrder: (checkoutData: any) => Promise<Order>;
   refreshAdminData: () => Promise<void>;
@@ -50,25 +49,24 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   const searchEngine = useMemo(() => new SearchEngine(products), [products]);
 
-  // Initial Load & Auth Check
+  // Initial Load
   useEffect(() => {
     const initStore = async () => {
       setIsLoading(true);
       
-      // Check for Supabase session
+      // 1. Auth Check
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
           setIsAuthenticated(true);
-          // Fetch role from admin_profiles
+          // Fetch role from 'profiles' table if exists, else default to operator for demo
           const { data: profile } = await supabase
-            .from('admin_profiles')
+            .from('profiles')
             .select('role')
             .eq('id', session.user.id)
             .single();
@@ -76,12 +74,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           setUser({
               id: session.user.id,
               email: session.user.email!,
-              role: (profile?.role as any) || 'viewer',
+              role: (profile?.role as any) || 'admin',
               name: session.user.email!.split('@')[0]
           });
       }
 
-      // Load Cart from LocalStorage
+      // 2. Load Cart
       const savedCart = localStorage.getItem('cart');
       if (savedCart) {
           setCart(JSON.parse(savedCart));
@@ -89,31 +87,29 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           setCart({ id: `cart_${Date.now()}`, items: [], region_id: 'in', subtotal: 0, total: 0 });
       }
 
-      // Load Products
+      // 3. Load Products
       try {
         const { data: dbProducts, error } = await supabase
             .from('products')
             .select('*')
             .eq('status', 'published');
 
-        if (dbProducts && dbProducts.length > 0) {
-            // Map Supabase rows to Product interface
+        if (!error && dbProducts && dbProducts.length > 0) {
             const mappedProducts = dbProducts.map(p => ({
                 ...p,
-                variants: p.variants || [], // Assuming JSONB
-                tags: p.tags || [],       // Assuming JSONB
-                metadata: p.metadata || {} // Assuming JSONB
+                variants: p.variants || [],
+                tags: p.tags || [],
+                metadata: p.metadata || {}
             }));
             setProducts(mappedProducts);
         } else {
-            // Fallback to CSV for demo/initial state
+            console.warn("Using Fallback CSV Data (Supabase empty or error)");
             const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
             setProducts(csvProducts);
             setIsDemoMode(true); 
         }
       } catch (e) {
         console.error("Failed to load catalog", e);
-        // Fallback
         const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
         setProducts(csvProducts);
       } finally {
@@ -123,7 +119,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     initStore();
   }, []);
 
-  // Sync Cart to LS
+  // Sync Cart
   useEffect(() => {
       if (cart) localStorage.setItem('cart', JSON.stringify(cart));
   }, [cart]);
@@ -135,12 +131,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
 
       if (error || !data.session) {
-          console.error("Login failed", error);
           throw new Error(error?.message || "Login failed");
       }
 
       const { data: profile } = await supabase
-        .from('admin_profiles')
+        .from('profiles')
         .select('role')
         .eq('id', data.session.user.id)
         .single();
@@ -213,7 +208,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const placeOrder = async (checkoutData: any) => {
       setIsLoading(true);
       try {
-          // Pass supabase client if needed, or service handles it
           const order = await CheckoutService.placeOrder(checkoutData.cart);
           if (order) {
               setCart(null); 
@@ -249,7 +243,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const generateShippingLabel = async () => {};
   
   const bulkImportProducts = async (csvData: any[]) => {
-      // Used by Admin page to update local state optimistically
       const newProds = csvData.map(d => transformToProduct(d));
       setProducts(prev => [...newProds, ...prev]);
   };

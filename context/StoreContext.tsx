@@ -1,26 +1,21 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import Medusa from "@medusajs/medusa-js";
-import { BACKEND_URL } from '../constants';
-import { Product, Order, Cart, LineItem } from '../contracts';
+import { supabase } from '../utils/supabaseClient';
+import { Product, Order, Cart, LineItem } from '../types'; // Updated types
 import { SearchEngine } from '../search';
 import { RAW_CSV_DATA } from '../data/rawCatalog';
 import { parseProductsFromCSV } from '../utils/csvHelpers';
-import { validateAndImport, transformToProduct } from '../utils/csvImportWorkflow';
-import { AdminService } from '../services/admin.service';
+import { transformToProduct } from '../utils/csvImportWorkflow';
 import { CheckoutService } from '../services/checkout.service';
-
-const medusa = new Medusa({ baseUrl: BACKEND_URL, maxRetries: 0 });
 
 interface UserProfile {
     id: string;
     email: string;
-    role: 'owner' | 'operator' | 'viewer';
-    name: string;
+    role: 'owner' | 'admin' | 'operator' | 'viewer';
+    name?: string;
 }
 
 interface StoreContextType {
-  client: Medusa;
+  supabase: typeof supabase;
   products: Product[];
   cart: Cart | null;
   orders: Order[];
@@ -67,16 +62,23 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const initStore = async () => {
       setIsLoading(true);
       
-      // Check for existing token
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-          const userData = await AdminService.getCurrentUser();
-          if (userData) {
-              setUser(userData);
-              setIsAuthenticated(true);
-          } else {
-              localStorage.removeItem('auth_token');
-          }
+      // Check for Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+          setIsAuthenticated(true);
+          // Fetch role from admin_profiles
+          const { data: profile } = await supabase
+            .from('admin_profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+            
+          setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              role: (profile?.role as any) || 'viewer',
+              name: session.user.email!.split('@')[0]
+          });
       }
 
       // Load Cart from LocalStorage
@@ -87,12 +89,33 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           setCart({ id: `cart_${Date.now()}`, items: [], region_id: 'in', subtotal: 0, total: 0 });
       }
 
+      // Load Products
       try {
-        const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
-        setProducts(csvProducts as unknown as Product[]);
-        setIsDemoMode(true); 
+        const { data: dbProducts, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('status', 'published');
+
+        if (dbProducts && dbProducts.length > 0) {
+            // Map Supabase rows to Product interface
+            const mappedProducts = dbProducts.map(p => ({
+                ...p,
+                variants: p.variants || [], // Assuming JSONB
+                tags: p.tags || [],       // Assuming JSONB
+                metadata: p.metadata || {} // Assuming JSONB
+            }));
+            setProducts(mappedProducts);
+        } else {
+            // Fallback to CSV for demo/initial state
+            const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
+            setProducts(csvProducts);
+            setIsDemoMode(true); 
+        }
       } catch (e) {
         console.error("Failed to load catalog", e);
+        // Fallback
+        const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
+        setProducts(csvProducts);
       } finally {
         setIsLoading(false);
       }
@@ -106,23 +129,34 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [cart]);
 
   const login = async (email: string, pass: string) => { 
-      try {
-          const data = await AdminService.login(email, pass);
-          if (data.token) {
-              localStorage.setItem('auth_token', data.token);
-              setUser(data.user);
-              setIsAuthenticated(true);
-              return true;
-          }
-          return false;
-      } catch (e) {
-          console.error("Login failed", e);
-          throw e; 
+      const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password: pass
+      });
+
+      if (error || !data.session) {
+          console.error("Login failed", error);
+          throw new Error(error?.message || "Login failed");
       }
+
+      const { data: profile } = await supabase
+        .from('admin_profiles')
+        .select('role')
+        .eq('id', data.session.user.id)
+        .single();
+
+      setUser({
+          id: data.session.user.id,
+          email: data.session.user.email!,
+          role: (profile?.role as any) || 'admin',
+          name: data.session.user.email!.split('@')[0]
+      });
+      setIsAuthenticated(true);
+      return true;
   };
 
-  const logout = () => {
-      localStorage.removeItem('auth_token');
+  const logout = async () => {
+      await supabase.auth.signOut();
       setUser(null);
       setIsAuthenticated(false);
   };
@@ -171,7 +205,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   };
 
-  // --- CHECKOUT LOGIC ---
   const validateCart = async () => {
       if (!cart || cart.items.length === 0) return null;
       return await CheckoutService.validateCart(cart.items);
@@ -180,12 +213,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const placeOrder = async (checkoutData: any) => {
       setIsLoading(true);
       try {
-          const response = await CheckoutService.placeOrder(checkoutData.cart, checkoutData.paymentId);
-          if (response.success && response.order) {
-              setCart(null); // Clear cart on success
+          // Pass supabase client if needed, or service handles it
+          const order = await CheckoutService.placeOrder(checkoutData.cart);
+          if (order) {
+              setCart(null); 
               localStorage.removeItem('cart');
-              createCart(); // Init new cart
-              return response.order;
+              createCart(); 
+              return order;
           }
           throw new Error("Order creation failed");
       } catch (e) {
@@ -198,8 +232,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const refreshAdminData = async () => {
       try {
-          const liveOrders = await CheckoutService.getAllOrders();
-          setOrders(liveOrders);
+          const { data: liveOrders } = await supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+          if (liveOrders) {
+              setOrders(liveOrders as unknown as Order[]);
+          }
       } catch (e) {
           console.error("Failed to load admin data", e);
       }
@@ -209,6 +249,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const generateShippingLabel = async () => {};
   
   const bulkImportProducts = async (csvData: any[]) => {
+      // Used by Admin page to update local state optimistically
       const newProds = csvData.map(d => transformToProduct(d));
       setProducts(prev => [...newProds, ...prev]);
   };
@@ -216,7 +257,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   return (
     <StoreContext.Provider value={{
-      client: medusa,
+      supabase,
       products,
       cart,
       orders,

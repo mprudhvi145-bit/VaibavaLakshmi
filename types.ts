@@ -1,4 +1,4 @@
-// Official Medusa DTO Alignments
+// Supabase Aligned Types
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -12,22 +12,16 @@ export enum PaymentStatus {
   NOT_PAID = 'not_paid',
   AWAITING = 'awaiting',
   CAPTURED = 'captured',
-  PARTIALLY_REFUNDED = 'partially_refunded',
   REFUNDED = 'refunded',
-  CANCELED = 'canceled',
-  REQUIRES_ACTION = 'requires_action'
+  CANCELED = 'canceled'
 }
 
 export enum FulfillmentStatus {
   NOT_FULFILLED = 'not_fulfilled',
-  PARTIALLY_FULFILLED = 'partially_fulfilled',
   FULFILLED = 'fulfilled',
-  PARTIALLY_SHIPPED = 'partially_shipped',
   SHIPPED = 'shipped',
-  PARTIALLY_RETURNED = 'partially_returned',
   RETURNED = 'returned',
-  CANCELED = 'canceled',
-  REQUIRES_ACTION = 'requires_action'
+  CANCELED = 'canceled'
 }
 
 export interface Region {
@@ -41,7 +35,6 @@ export interface ProductVariant {
   id: string;
   title: string;
   sku: string;
-  price?: number; // Calculated field helper
   inventory_quantity: number;
   prices: {
     currency_code: string;
@@ -51,15 +44,18 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
-  title: string; // Medusa uses title, not name
+  title: string;
   description: string;
   thumbnail: string;
   handle: string;
   status: 'draft' | 'proposed' | 'published' | 'rejected';
+  // Mapped from JSONB columns or simplified schema
+  price?: number; 
+  stock?: number;
   variants: ProductVariant[];
-  collection_id?: string;
   tags?: { id: string; value: string }[];
-  metadata?: Record<string, any>; // JSONB for detailed attributes
+  metadata?: Record<string, any>; 
+  created_at?: string;
 }
 
 export interface LineItem {
@@ -82,7 +78,6 @@ export interface Cart {
 }
 
 export interface Address {
-  id: string;
   first_name: string;
   last_name: string;
   address_1: string;
@@ -93,7 +88,6 @@ export interface Address {
 }
 
 export interface Customer {
-  id: string;
   email: string;
   first_name: string;
   last_name: string;
@@ -120,7 +114,6 @@ export interface Order {
   }
 }
 
-// Custom Interface for Logs (handled by custom plugin/service in backend)
 export interface NotificationLog {
   id: string;
   order_id: string;

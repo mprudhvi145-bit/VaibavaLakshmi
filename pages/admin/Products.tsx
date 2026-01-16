@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AdminService } from '../../services/admin.service';
 import { Upload, Search, Download, ShieldAlert, CheckCircle, X, AlertTriangle, FileText, Lock } from 'lucide-react';
@@ -17,7 +16,7 @@ const Products: React.FC = () => {
   const [csvText, setCsvText] = useState('');
   const [validationReport, setValidationReport] = useState<any>(null);
 
-  const canEdit = user?.role === 'owner' || user?.role === 'operator';
+  const canEdit = user?.role === 'admin' || user?.role === 'operator';
 
   useEffect(() => {
     fetchProducts();
@@ -44,7 +43,7 @@ const Products: React.FC = () => {
     if (!validationReport?.validRows?.length) return;
     setImportStep('uploading');
     try {
-      // Send raw text to backend for processing/storage
+      // Send raw text to service which parses and inserts to Supabase
       await AdminService.importCatalog(csvText);
       alert('Catalog Imported Successfully!');
       setIsImportOpen(false);
@@ -52,8 +51,9 @@ const Products: React.FC = () => {
       setValidationReport(null);
       setImportStep('input');
       fetchProducts(); // Refresh list
-    } catch (e) {
-      alert('Server Error: Import Failed');
+    } catch (e: any) {
+      console.error(e);
+      alert('Import Failed: ' + e.message);
       setImportStep('summary');
     }
   };
@@ -88,8 +88,8 @@ const Products: React.FC = () => {
       <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-start gap-3">
         <ShieldAlert className="text-blue-600 shrink-0 mt-0.5" size={20} />
         <div>
-          <h4 className="text-sm font-bold text-blue-800">Safe Mode Active</h4>
-          <p className="text-xs text-blue-600">Direct editing is disabled to ensure data integrity. To make changes, update your CSV file and re-import.</p>
+          <h4 className="text-sm font-bold text-blue-800">Supabase DB Connected</h4>
+          <p className="text-xs text-blue-600">Inventory is synced directly with Supabase. Updates via CSV will overwrite existing Handles.</p>
         </div>
       </div>
 
@@ -111,16 +111,17 @@ const Products: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {products.map((p) => {
+                  // Adjust accessors for Supabase JSONB structure or flattened structure
                   const category = p.tags?.find((t: any) => t.value.startsWith('Category:'))?.value.split(':')[1] || '-';
-                  const price = p.variants?.[0]?.prices?.[0]?.amount / 100 || 0;
-                  const stock = p.variants?.[0]?.inventory_quantity || 0;
+                  const price = p.variants?.[0]?.prices?.[0]?.amount / 100 || p.price / 100 || 0;
+                  const stock = p.variants?.[0]?.inventory_quantity || p.stock || 0;
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded bg-slate-100 overflow-hidden border">
-                            <img src={p.thumbnail} className="w-full h-full object-cover" alt="" />
+                            <img src={p.thumbnail || p.image_url} className="w-full h-full object-cover" alt="" />
                           </div>
                           <span className="font-medium text-slate-900 truncate max-w-[200px]">{p.title}</span>
                         </div>
@@ -174,7 +175,7 @@ const Products: React.FC = () => {
                     onChange={(e) => setCsvText(e.target.value)}
                   />
                   <div className="flex gap-2 justify-end">
-                     <button className="text-xs text-slate-500 hover:text-slate-800 font-bold underline" onClick={() => setCsvText(CSV_TEMPLATES.master)}>Load Sample Data</button>
+                     <button className="text-xs text-slate-500 hover:text-slate-800 font-bold underline" onClick={() => setCsvText(CSV_TEMPLATES.master || 'Handle,Title,Category,Price,Stock,Image URL,Fabric,Occasion,Color,Work Type,Dispatch Time,Return Eligible,Description')}>Load Sample Data</button>
                   </div>
                 </div>
               )}
@@ -225,8 +226,8 @@ const Products: React.FC = () => {
               {importStep === 'uploading' && (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
                   <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-4"></div>
-                  <h4 className="font-bold text-lg text-slate-800">Updating Catalog...</h4>
-                  <p className="text-sm text-slate-500">Syncing with database and rebuilding search index.</p>
+                  <h4 className="font-bold text-lg text-slate-800">Syncing with Supabase...</h4>
+                  <p className="text-sm text-slate-500">Updating product table via RLS.</p>
                 </div>
               )}
 

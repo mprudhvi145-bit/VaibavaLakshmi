@@ -1,59 +1,64 @@
 version: "3.8"
 
 services:
-  # 1. Medusa Backend
+  # 1. POSTGRES DATABASE
+  postgres:
+    image: postgres:15-alpine
+    container_name: vl_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-securepassword}
+      POSTGRES_DB: ${DB_NAME:-vaibava_db}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../scripts/backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vl_network
+
+  # 2. BACKEND API
   backend:
-    build: 
-      context: ../packages/medusa-backend
-      dockerfile: Dockerfile
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: vl_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 9000
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASS:-securepassword}@postgres:5432/${DB_NAME:-vaibava_db}
+      JWT_SECRET: ${JWT_SECRET:-change_this_secret}
+      STORE_CORS: "*" 
+      OPERATOR_SAFE_MODE: "true"
     ports:
       - "9000:9000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/medusa_db
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - COOKIE_SECRET=${COOKIE_SECRET}
-      - ADMIN_CORS=${ADMIN_CORS}
-      - STORE_CORS=${STORE_CORS}
-      - OPERATOR_SAFE_MODE=true
-    depends_on:
-      - postgres
-      - redis
-    restart: always
+    networks:
+      - vl_network
 
-  # 2. Database
-  postgres:
-    container_name: medusa-db
-    image: postgres:14-alpine
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=medusa_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ../scripts:/scripts
-      - ./backups:/backups
-    ports:
-      - "5432:5432"
-
-  # 3. Redis (Queue/Cache)
-  redis:
-    image: redis:6-alpine
-    ports:
-      - "6379:6379"
-
-  # 4. Storefront (Next.js)
-  storefront:
+  # 3. FRONTEND (NGINX)
+  frontend:
     build:
-      context: ../apps/storefront
+      context: ..
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - MEDUSA_BACKEND_URL=http://backend:9000
+    container_name: vl_frontend
+    restart: always
     depends_on:
       - backend
+    ports:
+      - "80:80"
+    networks:
+      - vl_network
 
 volumes:
-  postgres_data:
+  pg_data:
+
+networks:
+  vl_network:

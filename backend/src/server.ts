@@ -36,13 +36,13 @@ const log = (level: string, message: string, meta?: any) => {
 const app = express();
 
 // --- SECURITY & PERFORMANCE MIDDLEWARE ---
-app.use(helmet() as unknown as express.RequestHandler); // Secure HTTP headers
-app.use(compression() as unknown as express.RequestHandler); // Gzip compression
+app.use(helmet() as any); // Secure HTTP headers
+app.use(compression() as any); // Gzip compression
 app.use(cors({
   origin: process.env.STORE_CORS ? process.env.STORE_CORS.split(',') : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}) as unknown as express.RequestHandler);
+}) as any);
 app.use(express.json({ limit: '10mb' })); // Body parser limit
 
 // Database Connection

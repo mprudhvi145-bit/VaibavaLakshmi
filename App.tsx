@@ -14,9 +14,12 @@ import Cart from './pages/store/Cart';
 import SearchResults from './pages/store/SearchResults';
 import Checkout from './pages/store/Checkout';
 import OrderConfirmation from './pages/store/OrderConfirmation';
+import Wishlist from './pages/store/Wishlist';
+import Login from './pages/store/Login';
+import OrderHistory from './pages/store/OrderHistory';
 
 // Admin Pages
-import Login from './pages/admin/Login'; 
+import AdminLogin from './pages/admin/Login'; 
 import Dashboard from './pages/admin/Dashboard';
 import Orders from './pages/admin/Orders';
 import OrderDetail from './pages/admin/OrderDetail';
@@ -25,7 +28,7 @@ import Categories from './pages/admin/Categories';
 import SearchHealth from './pages/admin/SearchHealth';
 import Shipping from './pages/admin/Shipping';
 import Notifications from './pages/admin/Notifications';
-import Analytics from './pages/admin/Analytics'; // New
+import Analytics from './pages/admin/Analytics'; 
 import SOP from './pages/admin/SOP';
 import Finance from './pages/admin/Finance';
 
@@ -38,13 +41,18 @@ const App: React.FC = () => {
           <Route path="/" element={<StoreLayout />}>
             <Route index element={<Home />} />
             
-            {/* Catalog Routes: General and Category-Specific */}
+            {/* Catalog Routes */}
             <Route path="catalog" element={<Catalog />} />
             <Route path="catalog/:category" element={<Catalog />} />
             
             <Route path="search" element={<SearchResults />} />
             <Route path="product/:id" element={<ProductDetail />} />
             <Route path="cart" element={<Cart />} />
+            <Route path="wishlist" element={<Wishlist />} />
+            
+            {/* Customer Account */}
+            <Route path="login" element={<Login />} />
+            <Route path="account/orders" element={<OrderHistory />} />
           </Route>
 
           {/* Checkout Flow (No Layout) */}
@@ -52,7 +60,7 @@ const App: React.FC = () => {
           <Route path="/order-confirmed" element={<OrderConfirmation />} />
 
           {/* Admin Login */}
-          <Route path="/admin/login" element={<Login />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
@@ -62,7 +70,7 @@ const App: React.FC = () => {
             <Route path="products" element={<Products />} />
             <Route path="categories" element={<Categories />} />
             <Route path="search-health" element={<SearchHealth />} />
-            <Route path="analytics" element={<Analytics />} /> {/* New Route */}
+            <Route path="analytics" element={<Analytics />} /> 
             <Route path="customers" element={<div className="p-8">Customer Management List</div>} />
             <Route path="shipping" element={<Shipping />} />
             <Route path="notifications" element={<Notifications />} />

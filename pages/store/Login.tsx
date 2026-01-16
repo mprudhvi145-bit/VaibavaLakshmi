@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { BRAND_ASSETS } from '../../constants';
-import { Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { User, Lock, AlertCircle, ArrowRight } from 'lucide-react';
 
 const Login: React.FC = () => {
   const { login } = useStore();
@@ -13,7 +12,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const from = (location.state as any)?.from?.pathname || "/admin";
+  const from = (location.state as any)?.from?.pathname || "/account/orders";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,12 +20,8 @@ const Login: React.FC = () => {
     setError('');
     
     try {
-      const success = await login(email, password);
-      if (success) {
-        navigate(from, { replace: true });
-      } else {
-        setError('Invalid credentials');
-      }
+      await login(email, password);
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -43,16 +38,11 @@ const Login: React.FC = () => {
 
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
         
-        {/* Header */}
-        <div className="bg-brand-primary p-8 text-center">
-            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-                <Lock className="text-brand-gold" size={32} />
-            </div>
-            <h2 className="text-2xl font-serif text-white mb-1">Operator Access</h2>
-            <p className="text-brand-gold/80 text-sm">Vaibava Lakshmi System</p>
+        <div className="p-8 text-center border-b border-slate-100">
+            <h2 className="text-2xl font-serif text-slate-800 mb-1">Welcome Back</h2>
+            <p className="text-slate-500 text-sm">Sign in to access your orders and wishlist</p>
         </div>
 
-        {/* Form */}
         <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
@@ -64,12 +54,12 @@ const Login: React.FC = () => {
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
                     <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input 
                             type="email" 
                             required
                             className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary outline-none transition-all"
-                            placeholder="operator@vaibava.com"
+                            placeholder="you@example.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
@@ -94,17 +84,17 @@ const Login: React.FC = () => {
                 <button 
                     type="submit" 
                     disabled={isLoading}
-                    className="w-full bg-slate-900 text-white py-4 rounded-lg font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                    className="w-full bg-brand-primary text-white py-4 rounded-lg font-bold hover:bg-brand-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
                 >
-                    {isLoading ? 'Verifying...' : 'Secure Login'} <ArrowRight size={18} />
+                    {isLoading ? 'Signing In...' : 'Sign In'} <ArrowRight size={18} />
                 </button>
             </form>
             
-            <div className="mt-8 text-center">
-                <p className="text-xs text-slate-400">
-                    Protected by RBAC & Audit Logging.<br/>
-                    Unauthorized access is monitored.
+            <div className="mt-8 text-center pt-6 border-t border-slate-100">
+                <p className="text-sm text-slate-600">
+                    Don't have an account? <a href="#" className="text-brand-primary font-bold hover:underline">Register</a>
                 </p>
+                <Link to="/admin/login" className="block mt-4 text-xs text-slate-400 hover:text-slate-600">Are you an admin?</Link>
             </div>
         </div>
       </div>

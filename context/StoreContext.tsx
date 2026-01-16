@@ -10,7 +10,7 @@ import { CheckoutService } from '../services/checkout.service';
 interface UserProfile {
     id: string;
     email: string;
-    role: 'owner' | 'admin' | 'operator' | 'viewer';
+    role: 'owner' | 'admin' | 'operator' | 'viewer' | 'customer';
     name?: string;
 }
 
@@ -18,6 +18,7 @@ interface StoreContextType {
   supabase: typeof supabase;
   products: Product[];
   cart: Cart | null;
+  wishlist: string[];
   orders: Order[];
   searchEngine: SearchEngine | null;
   isLoading: boolean;
@@ -29,9 +30,13 @@ interface StoreContextType {
   removeFromCart: (lineId: string) => Promise<void>;
   createCart: () => Promise<void>;
   
+  toggleWishlist: (productId: string) => void;
+  isInWishlist: (productId: string) => boolean;
+
   validateCart: () => Promise<any>;
   placeOrder: (checkoutData: any) => Promise<Order>;
   refreshAdminData: () => Promise<void>;
+  fetchCustomerOrders: () => Promise<Order[]>;
   
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
@@ -47,6 +52,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -65,7 +71,6 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
           setIsAuthenticated(true);
-          // Fetch role from 'profiles' table if exists, else default to operator for demo
           const { data: profile } = await supabase
             .from('profiles')
             .select('role')
@@ -75,18 +80,18 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           setUser({
               id: session.user.id,
               email: session.user.email!,
-              role: (profile?.role as any) || 'admin',
+              role: (profile?.role as any) || 'customer',
               name: session.user.email!.split('@')[0]
           });
       }
 
-      // 2. Load Cart
+      // 2. Load Cart & Wishlist
       const savedCart = localStorage.getItem('cart');
-      if (savedCart) {
-          setCart(JSON.parse(savedCart));
-      } else {
-          setCart({ id: `cart_${Date.now()}`, items: [], region_id: 'in', subtotal: 0, total: 0 });
-      }
+      if (savedCart) setCart(JSON.parse(savedCart));
+      else setCart({ id: `cart_${Date.now()}`, items: [], region_id: 'in', subtotal: 0, total: 0 });
+
+      const savedWishlist = localStorage.getItem('wishlist');
+      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
 
       // 3. Load Products
       try {
@@ -104,7 +109,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }));
             setProducts(mappedProducts);
         } else {
-            console.warn("Using Fallback CSV Data (Supabase empty or error)");
+            // console.warn("Using Fallback CSV Data (Supabase empty or error)");
             const csvProducts = parseProductsFromCSV(RAW_CSV_DATA);
             setProducts(csvProducts);
             setIsDemoMode(true); 
@@ -125,6 +130,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (cart) localStorage.setItem('cart', JSON.stringify(cart));
   }, [cart]);
 
+  // Sync Wishlist
+  useEffect(() => {
+      localStorage.setItem('wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
   const login = async (email: string, pass: string) => { 
       const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -144,7 +154,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setUser({
           id: data.session.user.id,
           email: data.session.user.email!,
-          role: (profile?.role as any) || 'admin',
+          role: (profile?.role as any) || 'customer',
           name: data.session.user.email!.split('@')[0]
       });
       setIsAuthenticated(true);
@@ -155,6 +165,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       await supabase.auth.signOut();
       setUser(null);
       setIsAuthenticated(false);
+      setOrders([]);
   };
 
   const createCart = async () => {
@@ -188,6 +199,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             newItems = [...prev.items, newItem];
         }
         const total = newItems.reduce((acc, i) => acc + i.total, 0);
+        trackEvent('add_to_cart', { productId: product.id, name: product.title, price: price/100, quantity });
         return { ...prev, items: newItems, subtotal: total, total };
     });
   };
@@ -201,6 +213,17 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     });
   };
 
+  const toggleWishlist = (productId: string) => {
+      setWishlist(prev => {
+          const exists = prev.includes(productId);
+          const newList = exists ? prev.filter(id => id !== productId) : [...prev, productId];
+          trackEvent(exists ? 'remove_from_wishlist' : 'add_to_wishlist', { productId });
+          return newList;
+      });
+  };
+
+  const isInWishlist = (productId: string) => wishlist.includes(productId);
+
   const validateCart = async () => {
       if (!cart || cart.items.length === 0) return null;
       return await CheckoutService.validateCart(cart.items);
@@ -209,16 +232,26 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const placeOrder = async (checkoutData: any) => {
       setIsLoading(true);
       try {
-          const order = await CheckoutService.placeOrder(checkoutData.cart);
+          // Idempotency check handled by paymentId uniqueness in backend usually, 
+          // but frontend should also prevent double clicks (handled in component).
+          const order = await CheckoutService.placeOrder({
+              ...checkoutData,
+              // Associate with logged in user if available
+              userId: user?.id,
+              userEmail: user?.email
+          });
+          
           if (order) {
               setCart(null); 
               localStorage.removeItem('cart');
               createCart(); 
+              trackEvent('purchase', { orderId: order.id, value: order.total/100 });
               return order;
           }
           throw new Error("Order creation failed");
       } catch (e) {
           console.error("Order placement error", e);
+          trackEvent('purchase_error', { error: e.message });
           throw e;
       } finally {
           setIsLoading(false);
@@ -226,6 +259,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const refreshAdminData = async () => {
+      if (user?.role !== 'admin' && user?.role !== 'operator' && user?.role !== 'owner') return;
       try {
           const { data: liveOrders } = await supabase
             .from('orders')
@@ -240,8 +274,25 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
   };
 
+  const fetchCustomerOrders = async () => {
+      if (!user) return [];
+      // In a real app, RLS ensures users only see their orders. 
+      // Here we filter explicitly to be safe in this mock environment.
+      // Note: Assuming orders table has 'email' column or 'customer->email'
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('email', user.email)
+        .order('created_at', { ascending: false });
+      return (data as any) || [];
+  };
+
   const trackEvent = (eventName: string, payload: any) => {
     try {
+      if (process.env.NODE_ENV === 'development') {
+          console.log(`[Analytics] ${eventName}`, payload);
+      }
+      // Fire and forget
       fetch('/api/analytics/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,9 +301,9 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           payload: JSON.stringify(payload),
           userId: user?.id
         })
-      }).catch(err => console.debug('Analytics skipped', err));
+      }).catch(() => {});
     } catch (e) {
-      // Silently fail for analytics to ensure UX is not blocked
+      // Silently fail
     }
   };
 
@@ -270,6 +321,7 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       supabase,
       products,
       cart,
+      wishlist,
       orders,
       searchEngine,
       isLoading,
@@ -279,11 +331,14 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       addToCart,
       removeFromCart,
       createCart,
+      toggleWishlist,
+      isInWishlist,
       validateCart,
       placeOrder,
       login,
       logout,
       refreshAdminData,
+      fetchCustomerOrders,
       updateOrderStatus,
       generateShippingLabel,
       bulkImportProducts,

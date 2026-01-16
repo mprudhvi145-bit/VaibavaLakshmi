@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +9,7 @@ const STEP_ADDRESS = 1;
 const STEP_PAYMENT = 2;
 
 const Checkout: React.FC = () => {
-  const { cart, validateCart, placeOrder, isLoading } = useStore();
+  const { cart, validateCart, placeOrder, trackEvent } = useStore();
   const navigate = useNavigate();
   
   const [step, setStep] = useState(STEP_ADDRESS);
@@ -25,7 +24,10 @@ const Checkout: React.FC = () => {
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [phone, setPhone] = useState('');
+  
+  // Processing States
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Prevents double submit
 
   // Initial Calculation
   useEffect(() => {
@@ -37,6 +39,7 @@ const Checkout: React.FC = () => {
         try {
             const data = await validateCart();
             setTotals(data);
+            trackEvent('checkout_start', { value: data.total / 100, items: data.items.length });
         } catch (e) {
             setError('Could not validate cart. Please try again.');
         }
@@ -57,18 +60,23 @@ const Checkout: React.FC = () => {
     setError('');
     setStep(STEP_PAYMENT);
     window.scrollTo(0, 0);
+    trackEvent('checkout_step_2', { step: 'payment' });
   };
 
   const handlePayment = async () => {
+    if (isSubmitting || isProcessing) return;
+    
     setIsProcessing(true);
+    setIsSubmitting(true); // Lock
     setError('');
+    
     try {
         // 1. Create Intent
         const intent = await CheckoutService.createPaymentIntent(totals.total);
         
         // 2. Simulate Payment Gateway Interaction
         // In real life, this would open a modal or redirect
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate user typing card details
+        await new Promise(resolve => setTimeout(resolve, 2000)); 
         
         // 3. Place Order with Payment ID
         const order = await placeOrder({
@@ -78,18 +86,19 @@ const Checkout: React.FC = () => {
                 customer: { first_name: firstName, last_name: lastName, phone },
                 shipping_address: { first_name: firstName, last_name: lastName, address_1: address, city, postal_code: postalCode, phone, country_code: 'in' }
             },
-            paymentId: intent.id // In real flow, this comes from gateway callback
+            paymentId: intent.id
         });
 
         navigate('/order-confirmed', { state: { order } });
 
     } catch (e: any) {
-        setError(e.response?.data?.error || 'Payment failed. Please try again.');
+        setError(e.response?.data?.error || e.message || 'Payment failed. Please try again.');
         setIsProcessing(false);
+        setIsSubmitting(false); // Unlock on error
     }
   };
 
-  if (!totals) return <div className="p-8 text-center">Preparing Checkout...</div>;
+  if (!totals) return <div className="p-8 text-center min-h-screen flex items-center justify-center">Preparing Secure Checkout...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -109,9 +118,9 @@ const Checkout: React.FC = () => {
             
             {/* Error Banner */}
             {error && (
-                <div className="bg-red-50 text-red-700 p-4 rounded-lg text-sm flex items-start gap-2 mb-6">
+                <div className="bg-red-50 text-red-700 p-4 rounded-lg text-sm flex items-start gap-2 mb-6 border border-red-100">
                     <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                    {error}
+                    <span className="flex-1">{error}</span>
                 </div>
             )}
 
@@ -235,11 +244,11 @@ const Checkout: React.FC = () => {
 
                     <button 
                         onClick={handlePayment} 
-                        disabled={isProcessing}
-                        className="w-full bg-emerald-600 text-white py-4 rounded-lg font-bold shadow-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-slate-400"
+                        disabled={isSubmitting}
+                        className="w-full bg-emerald-600 text-white py-4 rounded-lg font-bold shadow-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 disabled:bg-slate-400 disabled:cursor-not-allowed"
                     >
-                        {isProcessing ? 'Processing Payment...' : `Pay ₹${(totals.total / 100).toLocaleString()}`}
-                        {!isProcessing && <ShieldCheck size={18} />}
+                        {isSubmitting ? 'Processing Payment...' : `Pay ₹${(totals.total / 100).toLocaleString()}`}
+                        {!isSubmitting && <ShieldCheck size={18} />}
                     </button>
                     
                     <p className="text-center text-xs text-slate-400 flex items-center justify-center gap-1">

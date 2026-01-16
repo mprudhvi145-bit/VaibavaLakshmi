@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { StoreProvider } from './context/StoreContext';
@@ -38,7 +37,11 @@ const App: React.FC = () => {
           {/* Store Routes */}
           <Route path="/" element={<StoreLayout />}>
             <Route index element={<Home />} />
+            
+            {/* Catalog Routes: General and Category-Specific */}
             <Route path="catalog" element={<Catalog />} />
+            <Route path="catalog/:category" element={<Catalog />} />
+            
             <Route path="search" element={<SearchResults />} />
             <Route path="product/:id" element={<ProductDetail />} />
             <Route path="cart" element={<Cart />} />

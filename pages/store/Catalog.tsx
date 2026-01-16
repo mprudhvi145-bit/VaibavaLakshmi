@@ -1,20 +1,18 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
-import { Filter, ChevronRight, X, ChevronDown, ChevronUp, SortAsc, LayoutGrid } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { CATEGORY_HIERARCHY, ATTRIBUTE_DICTIONARY, SORT_OPTIONS } from '../../constants';
-
-// SEO Helper
-const updateSEO = (title: string, desc: string) => {
-    document.title = `${title} | Vaibava Lakshmi`;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) metaDesc.setAttribute('content', desc);
-};
+import { Filter, ChevronRight, X, ChevronDown, ChevronUp, SortAsc, LayoutGrid, AlertTriangle } from 'lucide-react';
+import { Link, useSearchParams, useParams } from 'react-router-dom';
+import { ATTRIBUTE_DICTIONARY, SORT_OPTIONS } from '../../constants';
+import SEOHelper from '../../components/Shared/SEOHelper';
+import { findCategoryNode, getBreadcrumbPath } from '../../utils/categoryHelpers';
 
 const Catalog: React.FC = () => {
   const { products, isLoading } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeCatSlug = searchParams.get('cat') || 'all';
+  const { category: routeCategory } = useParams<{ category: string }>();
+  
+  // Prioritize Route Param, then Query Param, then 'all'
+  const activeCatSlug = routeCategory || searchParams.get('cat') || 'all';
   const sortParam = searchParams.get('sort') || 'relevance';
 
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
@@ -22,37 +20,42 @@ const Catalog: React.FC = () => {
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
 
   // --- 1. RESOLVE CATEGORY & BREADCRUMBS ---
-  const { categoryInfo, breadcrumbs } = useMemo(() => {
+  const { categoryInfo, breadcrumbs, isInvalidCategory } = useMemo(() => {
     let info = { label: 'All Collection', slug: 'all', description: 'Explore our complete collection of ethnic elegance.' };
     let crumbs = [{ label: 'Home', path: '/' }, { label: 'All', path: '/catalog' }];
+    let invalid = false;
     
-    if (activeCatSlug === 'all') return { categoryInfo: info, breadcrumbs: crumbs };
+    if (activeCatSlug === 'all') {
+        return { categoryInfo: info, breadcrumbs: crumbs, isInvalidCategory: false };
+    }
 
-    const findPath = (nodes: any[], currentPath: any[]): boolean => {
-      for (const node of nodes) {
-        const nextPath = [...currentPath, { label: node.label, path: `/catalog?cat=${node.slug}` }];
-        if (node.slug === activeCatSlug) {
-           info = { 
-               label: node.label, 
-               slug: node.slug, 
-               description: `Shop the finest ${node.label} at Vaibava Lakshmi. Handpicked for quality and tradition.`
-           };
-           crumbs = [{ label: 'Home', path: '/' }, ...nextPath];
-           return true;
-        }
-        if (node.children && findPath(node.children, nextPath)) return true;
-      }
-      return false;
-    };
-    findPath(CATEGORY_HIERARCHY, []);
-    return { categoryInfo: info, breadcrumbs: crumbs };
+    const node = findCategoryNode(activeCatSlug);
+    
+    if (node) {
+        info = { 
+            label: node.label, 
+            slug: node.slug, 
+            description: `Shop the finest ${node.label} at Vaibava Lakshmi. Handpicked for quality and tradition.`
+        };
+        crumbs = getBreadcrumbPath(activeCatSlug);
+    } else {
+        // Fallback / Error State
+        console.error(`[Catalog] Invalid category accessed: ${activeCatSlug}`);
+        invalid = true;
+        // Construct a safe fallback UI state
+        const fallbackLabel = activeCatSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        info = { label: `"${fallbackLabel}"`, slug: activeCatSlug, description: 'Category not found or archived.' };
+        // Do not show a path for invalid category
+        crumbs = [{ label: 'Home', path: '/' }];
+    }
+
+    return { categoryInfo: info, breadcrumbs: crumbs, isInvalidCategory: invalid };
   }, [activeCatSlug]);
 
   useEffect(() => {
-    updateSEO(categoryInfo.label, categoryInfo.description);
     setActiveFilters({});
     window.scrollTo(0,0);
-  }, [activeCatSlug, categoryInfo]);
+  }, [activeCatSlug]);
 
   // --- 2. FILTER & SORT PRODUCTS ---
   const displayedProducts = useMemo(() => {
@@ -60,16 +63,13 @@ const Catalog: React.FC = () => {
         // Category Match (Loose string match for hierarchy simulation)
         if (activeCatSlug !== 'all') {
             const tags = p.tags?.map(t => t.value.toLowerCase()) || [];
-            // Check if the product's category tag includes the active slug (e.g. 'women' includes 'women-sarees')
-            // Or if the active slug is 'women' and product is 'women-sarees'
-            const isMatch = tags.some(t => t.includes(activeCatSlug)) || p.handle.includes(activeCatSlug.split('-')[0]); // Fallback
+            const isMatch = tags.some(t => t.includes(activeCatSlug)) || p.handle.includes(activeCatSlug.split('-')[0]); 
             if (!isMatch) return false;
         }
 
         // Attribute Filters
         for (const [key, selectedValues] of Object.entries(activeFilters) as [string, string[]][]) {
             if (selectedValues.length === 0) continue;
-            // Mock filtering logic for demo
             if (key === 'Price') continue; 
             const requiredTags = selectedValues.map(val => `${key}:${val}`.toLowerCase());
             const hasMatch = p.tags?.some(tag => requiredTags.includes(tag.value.toLowerCase()));
@@ -105,12 +105,17 @@ const Catalog: React.FC = () => {
      let base = [...ATTRIBUTE_DICTIONARY.global];
      if (activeCatSlug.includes('saree')) base = [...base, ...ATTRIBUTE_DICTIONARY['sarees'] || []];
      if (activeCatSlug.includes('kids')) base = [...base, ...ATTRIBUTE_DICTIONARY['kids'] || []];
-     // Deduplicate
      return base.filter((v,i,a)=>a.findIndex(t=>(t.key===v.key))===i);
   }, [activeCatSlug]);
 
   return (
     <div className="bg-brand-ivory min-h-screen">
+      <SEOHelper 
+        title={categoryInfo.label} 
+        description={categoryInfo.description} 
+        type="collection"
+        breadcrumbs={breadcrumbs}
+      />
       
       {/* CATEGORY BANNER */}
       <div className="relative h-48 md:h-72 bg-brand-secondary overflow-hidden">
@@ -122,6 +127,12 @@ const Catalog: React.FC = () => {
         <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-4">
             <h1 className="text-3xl md:text-5xl font-serif text-white mb-2">{categoryInfo.label}</h1>
             <p className="text-white/80 text-sm max-w-xl">{categoryInfo.description}</p>
+            {isInvalidCategory && (
+                <div className="mt-4 flex items-center gap-2 bg-amber-500/20 text-amber-200 px-4 py-2 rounded-full border border-amber-500/50 backdrop-blur-sm text-sm">
+                    <AlertTriangle size={16} /> 
+                    <span>Category not found in catalog</span>
+                </div>
+            )}
         </div>
       </div>
 

@@ -39,6 +39,7 @@ interface StoreContextType {
   generateShippingLabel: (orderId: string) => Promise<void>;
   bulkImportProducts: (csvData: any[]) => Promise<void>;
   addProduct: () => Promise<void>;
+  trackEvent: (eventName: string, payload: any) => void;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -239,6 +240,22 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
   };
 
+  const trackEvent = (eventName: string, payload: any) => {
+    try {
+      fetch('/api/analytics/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: eventName,
+          payload: JSON.stringify(payload),
+          userId: user?.id
+        })
+      }).catch(err => console.debug('Analytics skipped', err));
+    } catch (e) {
+      // Silently fail for analytics to ensure UX is not blocked
+    }
+  };
+
   const updateOrderStatus = async () => {};
   const generateShippingLabel = async () => {};
   
@@ -270,7 +287,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       updateOrderStatus,
       generateShippingLabel,
       bulkImportProducts,
-      addProduct
+      addProduct,
+      trackEvent
     }}>
       {children}
     </StoreContext.Provider>

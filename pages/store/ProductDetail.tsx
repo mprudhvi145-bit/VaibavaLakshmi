@@ -1,10 +1,11 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../context/StoreContext';
-import { Star, Truck, ShieldCheck, Heart, Share2, Ruler, Clock, RotateCcw } from 'lucide-react';
+import { Truck, ShieldCheck, Heart, Share2, Ruler, Clock, RotateCcw } from 'lucide-react';
 import { Product } from '../../types';
 import SEOHelper from '../../components/Shared/SEOHelper';
+import Breadcrumb from '../../components/Shared/Breadcrumb';
+import { getBreadcrumbPath } from '../../utils/categoryHelpers';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,15 +24,24 @@ const ProductDetail: React.FC = () => {
     }
   }, [products, id]);
 
+  // Helper to extract Tag Value by Key
+  const getTagValue = (key: string) => product?.tags?.find(t => t.value.startsWith(`${key}:`))?.value.split(':')[1];
+
+  const breadcrumbs = useMemo(() => {
+    if (!product) return [];
+    
+    const categorySlug = getTagValue('Category');
+    const path = getBreadcrumbPath(categorySlug);
+    
+    // Append current product
+    return [...path, { label: product.title, path: `/product/${product.id}` }];
+  }, [product]);
+
   if (isLoading || !product) return <div className="min-h-screen bg-brand-ivory flex items-center justify-center">Loading...</div>;
 
   const price = product.variants[0]?.prices[0]?.amount / 100 || 0;
   const variantId = product.variants[0]?.id;
   const metadata = product.metadata || {};
-  const tags = product.tags || [];
-
-  // Helper to extract Tag Value by Key
-  const getTagValue = (key: string) => tags.find(t => t.value.startsWith(`${key}:`))?.value.split(':')[1];
 
   return (
     <div className="bg-brand-ivory min-h-screen pt-4 pb-20">
@@ -40,13 +50,14 @@ const ProductDetail: React.FC = () => {
         description={product.description}
         type="product"
         product={product}
+        breadcrumbs={breadcrumbs}
       />
 
       <div className="container mx-auto px-4 lg:px-12">
         
-        {/* Breadcrumb / Category Context */}
-        <div className="text-xs text-slate-500 mb-4 uppercase tracking-wider">
-           Home / {getTagValue('Category') || 'Collection'} / <span className="text-slate-900 font-bold">{product.title}</span>
+        {/* Dynamic Breadcrumb Navigation */}
+        <div className="mb-4">
+          <Breadcrumb items={breadcrumbs} />
         </div>
 
         <div className="flex flex-col lg:flex-row gap-12">
@@ -57,7 +68,7 @@ const ProductDetail: React.FC = () => {
              <div className="hidden lg:flex flex-col gap-4 w-24">
                 {[product.thumbnail, product.thumbnail, product.thumbnail].map((img, idx) => (
                     <button key={idx} onClick={() => setActiveImg(img)} className={`border-2 ${activeImg === img ? 'border-brand-primary' : 'border-transparent'}`}>
-                        <img src={img} className="w-full aspect-[3/4] object-cover" loading="lazy" />
+                        <img src={img} className="w-full aspect-[3/4] object-cover" loading="lazy" alt={`View ${idx + 1}`} />
                     </button>
                 ))}
              </div>
